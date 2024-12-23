@@ -1,12 +1,12 @@
 {
     "type": "code",
-    "modid": "BloodyStory",
+    "modid": "bloodystory",
     "name": "BloodyStory",
     "authors": [
         "Professor Cupcake"
     ],
     "description": "Adds bleeding, healing, and a new bandage",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "dependencies": {
         "game": ""
     }

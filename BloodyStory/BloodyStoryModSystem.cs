@@ -8,6 +8,7 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using HarmonyLib;
 using Vintagestory.API.Util;
+using Vintagestory.API.Common.Entities;
 
 namespace BloodyStory
 {
@@ -143,13 +144,15 @@ namespace BloodyStory
         public override void StartClientSide(ICoreClientAPI api)
         {
             this.capi = api;
+
+            api.World.Config.SetFloat("playerHealthRegenSpeed", 0f);
         }
 
         private void OnPlayerJoined(IServerPlayer byPlayer)
         {
             EntityBehaviorHealth pHealth = byPlayer.Entity.GetBehavior<EntityBehaviorHealth>();
 
-            pHealth._playerHealthRegenSpeed = 0; // this is probably ok
+            //pHealth._playerHealthRegenSpeed = 0; // this is probably ok
 
             pHealth.onDamaged += ((float dmg, DamageSource dmgSrc) => HandleDamage(byPlayer, dmg, dmgSrc));
         }
@@ -353,7 +356,7 @@ namespace BloodyStory
                 double regenRate = (pHunger.Saturation > 0) ? modConfig.baseRegen + (modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth)) : 0;
                 if (bleedRate <= 0)
                 {
-                    if (player.Entity.MountedOn is BlockEntityBed)
+                    if (player.Entity.MountedOn is not null and BlockEntityBed)
                     {
                         regenRate *= modConfig.regenBedMultiplier;
                     };
@@ -534,7 +537,7 @@ namespace BloodyStory
                 regenRate = modConfig.baseRegen + modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth);
                 if (bleedRate <= 0)
                 {
-                    regenRate *= player.Entity.MountedOn is BlockEntityBed ? modConfig.regenBedMultiplier : 1;
+                    regenRate *= player.Entity.MountedOn is not null and BlockEntityBed ? modConfig.regenBedMultiplier : 1;
                     if (player.Entity.Controls.FloorSitting)
                     {
                         long sitStartTime = playerAttributes.GetLong(sitStartTimeAttr);
