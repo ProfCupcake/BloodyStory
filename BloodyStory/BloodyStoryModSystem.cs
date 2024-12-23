@@ -468,6 +468,7 @@ namespace BloodyStory
             else if (player.Entity.Controls.Sneak) bloodHeight /= 2;
             
             float playerYaw = player.Entity.Pos.Yaw;
+            playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn? 
 
             SimpleParticleProperties bloodParticleProperties = new(
                 1, //minQuantity
@@ -481,17 +482,17 @@ namespace BloodyStory
                 1, //gravityEffect
                 0.2f, //minSize
                 0.5f //maxSize
-                 ){
+                 ) {
                 ShouldSwimOnLiquid = true,
 
-                MinPos = player.Entity.Pos.XYZ.Add(-0.2f * Math.Cos((double)(playerYaw + (Math.PI / 2))), bloodHeight, 0.2f * Math.Sin((double)(playerYaw + (Math.PI / 2)))),
-                AddPos = new Vec3d(0.4f * Math.Cos((double)(playerYaw + (Math.PI / 2))), 0.4f, -0.4f * Math.Sin((double)(playerYaw + (Math.PI / 2)))),
+                MinPos = player.Entity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + (Math.PI / 2)), bloodHeight, 0.2f * Math.Sin(playerYaw + (Math.PI / 2))),
+                AddPos = new Vec3d(0.4f * Math.Cos(playerYaw + (Math.PI / 2)), 0.4f, -0.4f * Math.Sin(playerYaw + (Math.PI / 2))),
 
                 MinQuantity = (float)bleedAmount / 4,
                 AddQuantity = (float)bleedAmount,
 
-                MinVelocity = new Vec3f(0.7f * (float)Math.Cos((double)playerYaw), -0.35f, -0.7f * (float)Math.Sin((double)playerYaw)),
-                AddVelocity = new Vec3f(0.7f * (float)Math.Cos((double)playerYaw), 0.7f, -0.7f * (float)Math.Sin((double)playerYaw))
+                MinVelocity = new Vec3f(0.7f * (float)Math.Cos(playerYaw), -0.35f, (float)(-0.7f * Math.Sin(playerYaw))),
+                AddVelocity = new Vec3f(0.7f * (float)Math.Cos(playerYaw), 0.7f, (float)(-0.7f * Math.Sin(playerYaw)))
             };
 
             player.Entity.World.SpawnParticles(bloodParticleProperties);
