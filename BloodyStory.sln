@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34003.232
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BloodyStory", "BloodyStory\BloodyStory.csproj", "{351BF368-53EC-41E5-8A24-103354E2476C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CakeBuild", "CakeBuild\CakeBuild.csproj", "{E9E0B48B-DFB4-4050-ACDA-3EC5EB792C90}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{351BF368-53EC-41E5-8A24-103354E2476C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{351BF368-53EC-41E5-8A24-103354E2476C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{351BF368-53EC-41E5-8A24-103354E2476C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{351BF368-53EC-41E5-8A24-103354E2476C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E9E0B48B-DFB4-4050-ACDA-3EC5EB792C90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E9E0B48B-DFB4-4050-ACDA-3EC5EB792C90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E9E0B48B-DFB4-4050-ACDA-3EC5EB792C90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E9E0B48B-DFB4-4050-ACDA-3EC5EB792C90}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D58DDFDF-0513-4AE5-8832-A4B7E2E61B12}
+	EndGlobalSection
+EndGlobal
