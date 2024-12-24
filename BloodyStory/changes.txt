@@ -3,3 +3,5 @@
 - Bleed particles now reduced when crouching
 - Increase quantity of bleed particles
 
+- Mod no longer prevents vanilla death messages on bleedout
+- Also removed mod death messages (which were still a placeholder anyway)

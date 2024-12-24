@@ -9,6 +9,7 @@ using Vintagestory.API.MathTools;
 using HarmonyLib;
 using Vintagestory.API.Util;
 using Vintagestory.API.Common.Entities;
+using System.Collections.Generic;
 
 namespace BloodyStory
 {
@@ -59,6 +60,8 @@ namespace BloodyStory
         static readonly string sitStartTimeAttr = "BS_sitStartTime";
 
         static readonly int tickRate = 1000/15;
+
+        static Dictionary<IServerPlayer, DamageSource> lastHit = new();
 
         double lastUpdate = -1;
 
@@ -296,6 +299,7 @@ namespace BloodyStory
             playerAttributes.SetBytes(lastHitBytesAttr, dmgSourceBytes);
             //*/
 
+            /*
             playerAttributes.SetInt(lastHitTypeAttr, (int)dmgSource.Type);
             playerAttributes.SetInt(lastHitSourceAttr, (int)dmgSource.Source);
 
@@ -316,6 +320,8 @@ namespace BloodyStory
                 playerAttributes.SetString("deathByPlayer", null);
             }
             //*/
+
+            lastHit[byPlayer] = dmgSource;
         }
 
         private void Tick(float dtr)
@@ -387,9 +393,9 @@ namespace BloodyStory
                     {
                         if (CalculateDmgCum(dt_peak, bleedDmg, regenRate, regenBoost) > pHealth.Health)
                         {
-                            sapi.SendMessageToGroup(GlobalConstants.GeneralChatGroup, GetBleedoutMessage(player), EnumChatType.Notification);
-                            //DamageSource dmgSource = GetLastHitSource(player);
-                            player.Entity.Die(EnumDespawnReason.Death, null);
+                            //sapi.SendMessageToGroup(GlobalConstants.GeneralChatGroup, GetBleedoutMessage(player), EnumChatType.Notification);
+                            DamageSource dmgSource;
+                            player.Entity.Die(EnumDespawnReason.Death, lastHit.TryGetValue(player, out dmgSource) ? dmgSource : null);
                             continue;
                         }
                     }
@@ -403,10 +409,10 @@ namespace BloodyStory
                 pHealth.Health = (float)Math.Min(pHealth.Health - CalculateDmgCum(dt, bleedDmg, regenRate, regenBoost), pHealth.MaxHealth); // TODO: handle edge case where bleeding would have stopped within dt given? (probably unnecessary)
                 if (pHealth.Health < 0)
                 {
-                    sapi.SendMessageToGroup(GlobalConstants.GeneralChatGroup, GetBleedoutMessage(player), EnumChatType.Notification);
+                    //sapi.SendMessageToGroup(GlobalConstants.GeneralChatGroup, GetBleedoutMessage(player), EnumChatType.Notification);
 
-                    //DamageSource dmgSource = GetLastHitSource(player);
-                    player.Entity.Die(EnumDespawnReason.Death, null);
+                    DamageSource dmgSource;
+                    player.Entity.Die(EnumDespawnReason.Death, lastHit.TryGetValue(player, out dmgSource) ? dmgSource : null);
                     continue;
                 }
 
