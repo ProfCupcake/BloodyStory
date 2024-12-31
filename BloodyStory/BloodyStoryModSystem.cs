@@ -10,6 +10,7 @@ using HarmonyLib;
 using Vintagestory.API.Util;
 using Vintagestory.API.Common.Entities;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace BloodyStory
 {
@@ -31,6 +32,8 @@ namespace BloodyStory
         public double sneakMultiplier = 8f; // multiplier for bleed quotient applied when sneaking
 
         public double bleedCautMultiplier = 1f; // multiplier for how much bleed is reduced by fire damage
+
+        public double bloodParticleMultiplier = 1f; // multiplier for the quantity of blood particles produced
 
         public float bandageMultiplier = 1f; // multiplier for the amount of bleed reduction when using bandages/poultice
 
@@ -194,6 +197,7 @@ namespace BloodyStory
             switch (dmgSource.Type) // possible alternate implementation: dictionary, with dmg type as keys and functions as values?
             {
                 case EnumDamageType.Heal: // healing items reduce bleed rate
+                    // TODO: add alternative healing method, to allow direct healing?
                     damage *= modConfig.bandageMultiplier;
                     damage *= Math.Max(0, byPlayer.Entity.Stats.GetBlended("healingeffectivness"));
                     double bleedRate = playerAttributes.GetDouble(bleedAttr);
@@ -413,12 +417,34 @@ namespace BloodyStory
         {
             double bleedAmount = player.Entity.WatchedAttributes.GetDouble(bleedAttr);
             bleedAmount /= (player.Entity.Controls.Sneak ? modConfig.sneakMultiplier : 1);
+            bleedAmount *= modConfig.bloodParticleMultiplier;
             double bloodHeight = player.Entity.LocalEyePos.Y/2;
             if (player.Entity.Controls.FloorSitting) bloodHeight /= 4;
             else if (player.Entity.Controls.Sneak) bloodHeight /= 2;
             
             float playerYaw = player.Entity.Pos.Yaw;
             playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn? 
+
+            SimpleParticleProperties[] waterBloodParticleProperties = {new(
+                1, //minQuantity
+                1, //maxQuantity
+                ColorUtil.ColorFromRgba(0, 0, 255, 255), //colour
+                new Vec3d(), //minPos
+                new Vec3d(), //maxPos
+                new Vec3f(0f, 0f, 0.5f), //minVelocity
+                new Vec3f(0.5f, 0.5f, 0.5f), //maxVelocity
+                1, //lifeLength
+                1, //gravityEffect
+                0.2f, //minSize
+                0.5f, //maxSize
+                EnumParticleModel.Quad //model
+                )
+            {
+                ShouldDieInAir = false,
+                ShouldSwimOnLiquid = true,
+                ShouldDieInLiquid = false,
+                GravityEffect = 0
+            } };
 
             SimpleParticleProperties bloodParticleProperties = new(
                 1, //minQuantity
@@ -432,8 +458,9 @@ namespace BloodyStory
                 1, //gravityEffect
                 0.2f, //minSize
                 0.5f //maxSize
-                 ) {
-                ShouldSwimOnLiquid = true,
+                 )
+            {
+                ShouldDieInLiquid = true,
 
                 MinPos = player.Entity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + (Math.PI / 2)), bloodHeight, 0.2f * Math.Sin(playerYaw + (Math.PI / 2))),
                 AddPos = new Vec3d(0.4f * Math.Cos(playerYaw + (Math.PI / 2)), 0.4f, -0.4f * Math.Sin(playerYaw + (Math.PI / 2))),
@@ -442,7 +469,12 @@ namespace BloodyStory
                 AddQuantity = (float)bleedAmount * 2,
 
                 MinVelocity = new Vec3f(0.7f * (float)Math.Cos(playerYaw), -0.35f, (float)(-0.7f * Math.Sin(playerYaw))),
-                AddVelocity = new Vec3f(0.7f * (float)Math.Cos(playerYaw), 0.7f, (float)(-0.7f * Math.Sin(playerYaw)))
+                AddVelocity = new Vec3f(0.7f * (float)Math.Cos(playerYaw), 0.7f, (float)(-0.7f * Math.Sin(playerYaw))),
+
+                ParentVelocity = player.Entity.Pos.Motion.ToVec3f(),
+                ParentVelocityWeight = 0f,
+
+                DeathParticles = waterBloodParticleProperties
             };
 
             player.Entity.World.SpawnParticles(bloodParticleProperties);
