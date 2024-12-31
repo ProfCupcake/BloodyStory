@@ -45,7 +45,7 @@ namespace BloodyStory
     }
 
     [HarmonyPatch]
-    public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point?
+    public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point? (probably a separate mod)
     {
         static BloodyStoryModConfig modConfig;
 
@@ -215,7 +215,6 @@ namespace BloodyStory
                     break;
                 case EnumDamageType.Poison: 
                     playerAttributes.SetDouble(bleedAttr, playerAttributes.GetDouble(bleedAttr) + damage);
-                    byPlayer.Entity.OnHurt(dmgSource, damage);
                     RecordLastHit(byPlayer, dmgSource);
                     ReceiveDamageReplacer(byPlayer, dmgSource, damage);
                     damage = 0;
@@ -285,73 +284,20 @@ namespace BloodyStory
         private static void RecordLastHit(IServerPlayer byPlayer, DamageSource dmgSource)
         {
             SyncedTreeAttribute playerAttributes = byPlayer.Entity.WatchedAttributes;
-            /*
-            byte[] dmgSourceBytes;
-            try
-            {
-                dmgSourceBytes = SerializerUtil.Serialize<DamageSource>(dmgSource);
-            }
-            catch (ArgumentNullException e)
-            {
-                dmgSourceBytes = null;
-            }
-
-            playerAttributes.SetBytes(lastHitBytesAttr, dmgSourceBytes);
-            //*/
-
-            /*
-            playerAttributes.SetInt(lastHitTypeAttr, (int)dmgSource.Type);
-            playerAttributes.SetInt(lastHitSourceAttr, (int)dmgSource.Source);
-
-            if (dmgSource.CauseEntity != null)
-            {
-                playerAttributes.SetString("deathByEntityLangCode", "prefixandcreature-" + dmgSource.CauseEntity.Code.Path.Replace("-", ""));
-                playerAttributes.SetString("deathByEntity", dmgSource.CauseEntity.Code.ToString());
-
-                if (dmgSource.CauseEntity is EntityPlayer srcPlayer)
-                {
-                    playerAttributes.SetString("deathByPlayer", srcPlayer?.Player.PlayerName);
-                }
-                else playerAttributes.SetString("deathByPlayer", null);
-            } else
-            {
-                playerAttributes.SetString("deathByEntityLangCode", null);
-                playerAttributes.SetString("deathByEntity", null);
-                playerAttributes.SetString("deathByPlayer", null);
-            }
-            //*/
 
             lastHit[byPlayer] = dmgSource;
         }
 
-        private void Tick(float dtr)
+        private void Tick(float dt)
         {
-            dtr *= sapi.World.Calendar.CalendarSpeedMul * sapi.World.Calendar.SpeedOfTime; // realtime -> game time
-            dtr /= 30; // 24 hrs -> 48 mins
-            dtr *= modConfig.timeDilation;
-
-            if (lastUpdate <= 0)
-            {
-                lastUpdate = sapi.World.Calendar.ElapsedHours;
-                return;
-            }
-            double dtv = sapi.World.Calendar.ElapsedHours - lastUpdate;
-            dtv *= 3600; // hours -> seconds
-            dtv /= 30; // 24 game hours -> 48 real minutes
-            dtv *= modConfig.timeDilation;
-
-            float dt = (modConfig.virtualTime ? (float)dtv : dtr);
+            dt *= sapi.World.Calendar.CalendarSpeedMul * sapi.World.Calendar.SpeedOfTime; // realtime -> game time
+            dt /= 30; // 24 hrs -> 48 mins
+            dt *= modConfig.timeDilation;
 
             IServerPlayer[] players = (IServerPlayer[])sapi.World.AllOnlinePlayers;
             foreach (IServerPlayer player in players)
             {
                 if (player == null || player.ConnectionState != EnumClientState.Playing || !player.Entity.Alive) continue;
-
-                /*
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "dtr: "+dtr, EnumChatType.Notification);
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "dtv: "+dtv, EnumChatType.Notification);
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "-", EnumChatType.Notification);
-                //*/
 
                 SyncedTreeAttribute playerAttributes = player.Entity.WatchedAttributes;
                 EntityBehaviorHealth pHealth = player.Entity.GetBehavior<EntityBehaviorHealth>();
@@ -393,7 +339,6 @@ namespace BloodyStory
                     {
                         if (CalculateDmgCum(dt_peak, bleedDmg, regenRate, regenBoost) > pHealth.Health)
                         {
-                            //sapi.SendMessageToGroup(GlobalConstants.GeneralChatGroup, GetBleedoutMessage(player), EnumChatType.Notification);
                             DamageSource dmgSource;
                             player.Entity.Die(EnumDespawnReason.Death, lastHit.TryGetValue(player, out dmgSource) ? dmgSource : null);
                             continue;
@@ -409,8 +354,6 @@ namespace BloodyStory
                 pHealth.Health = (float)Math.Min(pHealth.Health - CalculateDmgCum(dt, bleedDmg, regenRate, regenBoost), pHealth.MaxHealth); // TODO: handle edge case where bleeding would have stopped within dt given? (probably unnecessary)
                 if (pHealth.Health < 0)
                 {
-                    //sapi.SendMessageToGroup(GlobalConstants.GeneralChatGroup, GetBleedoutMessage(player), EnumChatType.Notification);
-
                     DamageSource dmgSource;
                     player.Entity.Die(EnumDespawnReason.Death, lastHit.TryGetValue(player, out dmgSource) ? dmgSource : null);
                     continue;
