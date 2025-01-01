@@ -7,10 +7,8 @@ using Vintagestory.GameContent;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using HarmonyLib;
-using Vintagestory.API.Util;
-using Vintagestory.API.Common.Entities;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
+using ProtoBuf;
 
 namespace BloodyStory
 {
@@ -47,6 +45,17 @@ namespace BloodyStory
         public bool virtualTime = false; // whether to use virtual time (from sampling game clock) or realtime (from tick dt)
     }
 
+    [ProtoContract]
+    public class NetMessage_Request
+    {
+    }
+    [ProtoContract]
+    public class NetMessage_Send
+    {
+        [ProtoMember(1)]
+        public string message;
+    }
+
     [HarmonyPatch]
     public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point? (probably a separate mod)
     {
@@ -56,11 +65,10 @@ namespace BloodyStory
 
         static readonly string bleedAttr = "BS_bleed";
         static readonly string regenAttr = "BS_regen";
-        
-        static readonly string lastHitTypeAttr = "BS_lastHit_Type";
-        static readonly string lastHitSourceAttr = "BS_lastHit_Source";
 
         static readonly string sitStartTimeAttr = "BS_sitStartTime";
+
+        static readonly string netChannel = "BS_networkChannel";
 
         static readonly int tickRate = 1000/15;
 
@@ -77,13 +85,6 @@ namespace BloodyStory
         {
             BloodyStoryModSystem.api = api;
 
-            modConfig = api.LoadModConfig<BloodyStoryModConfig>("BloodyStory.json");
-            if (modConfig == null)
-            {
-                modConfig = new BloodyStoryModConfig();
-                api.StoreModConfig(modConfig, "BloodyStory.json");
-            }
-
             api.World.Config.SetFloat("playerHealthRegenSpeed", 0f);
 
             harmony = new("com.profcupcake.bloodystory");
@@ -99,6 +100,13 @@ namespace BloodyStory
         {
             sapi = api;
 
+            sapi.Network.RegisterChannel(netChannel)
+                .RegisterMessageType(typeof(NetMessage_Request))
+                .RegisterMessageType(typeof(NetMessage_Send))
+                .SetMessageHandler<NetMessage_Request>(Net_HandleRequest);
+
+            ReloadConfig();
+            
             sapi.Event.PlayerNowPlaying += OnPlayerJoined;
             sapi.Event.PlayerRespawn += OnPlayerRespawn;
             sapi.Event.RegisterGameTickListener(Tick, tickRate);
@@ -119,12 +127,46 @@ namespace BloodyStory
             sapi.ChatCommands.Create("bsconfigreload")
                 .WithDescription("Reloads Bloody Story config file")
                 .RequiresPrivilege(Privilege.root)
-                .HandleWith(ReloadConfig);
+                .HandleWith(ReloadConfigCommand);
 
             harmony.PatchAll();
         }
         
-        private TextCommandResult ReloadConfig(TextCommandCallingArgs args)
+        static private void Net_HandleRequest(IServerPlayer player, NetMessage_Request request)
+        {
+            SendConfig(player);
+        }
+
+        static private void SendConfig(IServerPlayer player)
+        {
+            NetMessage_Send send = new()
+            {
+                message = JsonUtil.ToString<BloodyStoryModConfig>(modConfig)
+            };
+
+            sapi.Network.GetChannel(netChannel)
+                .SendPacket<NetMessage_Send>(send, player);
+        }
+
+        static private void BroadcastConfig()
+        {
+            NetMessage_Send send = new()
+            {
+                message = JsonUtil.ToString<BloodyStoryModConfig>(modConfig)
+            };
+
+            sapi.Network.GetChannel(netChannel)
+                .BroadcastPacket<NetMessage_Send>(send);
+        }
+        
+        private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
+        {
+            ReloadConfig();
+
+            return TextCommandResult.Success();
+        }
+
+        static private void ReloadConfig()
         {
             modConfig = api.LoadModConfig<BloodyStoryModConfig>("BloodyStory.json");
             if (modConfig == null)
@@ -133,7 +175,7 @@ namespace BloodyStory
                 api.StoreModConfig(modConfig, "BloodyStory.json");
             }
 
-            return TextCommandResult.Success();
+            BroadcastConfig();
         }
 
         private TextCommandResult MakeMeBleedCommand(TextCommandCallingArgs args)
@@ -153,10 +195,36 @@ namespace BloodyStory
         {
             capi = api;
 
+            TryRegisterClientNetChannel();
+
+            RequestConfig();
+
             IClientPlayer player = capi.World.Player;
 
             capi.Event.RegisterGameTickListener((float dt) => ClientTick(dt, player), tickRate);
+        }
+        static private void TryRegisterClientNetChannel()
+        {
+            capi.Network.RegisterChannel(netChannel)
+                .RegisterMessageType(typeof(NetMessage_Request))
+                .RegisterMessageType(typeof(NetMessage_Send))
+                .SetMessageHandler<NetMessage_Send>(Net_HandleSend);
+        }
 
+        static private void Net_HandleSend(NetMessage_Send send)
+        {
+            modConfig = JsonUtil.FromString<BloodyStoryModConfig>(send.message);
+        }
+
+        static private void RequestConfig()
+        {
+            if (capi.Network.GetChannelState(netChannel) == EnumChannelState.Connected)
+            {
+                capi.Network.GetChannel(netChannel).SendPacket<NetMessage_Request>(new());
+            } else
+            {
+                TryRegisterClientNetChannel();
+            }
         }
 
         private void OnPlayerJoined(IServerPlayer byPlayer)
@@ -299,6 +367,11 @@ namespace BloodyStory
 
         private void ClientTick(float dt, IClientPlayer player)
         {
+            if (player == null)
+            {
+                player = capi.World.Player;
+                if (player == null) return;
+            }
             if (player.Entity.WatchedAttributes.GetDouble(bleedAttr) > 0f)
             {
                 SpawnBloodParticles(player);
@@ -428,6 +501,12 @@ namespace BloodyStory
 
         private static void SpawnBloodParticles(IClientPlayer player)
         {
+            if (modConfig == null)
+            {
+                RequestConfig();
+                return;
+            }
+
             double bleedAmount = player.Entity.WatchedAttributes.GetDouble(bleedAttr);
             bleedAmount /= (player.Entity.Controls.Sneak ? modConfig.sneakMultiplier : 1);
             bleedAmount *= modConfig.bloodParticleMultiplier;
@@ -436,7 +515,7 @@ namespace BloodyStory
             else if (player.Entity.Controls.Sneak) bloodHeight /= 2;
 
             float playerYaw = player.Entity.Pos.Yaw;
-            playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn? 
+            playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
 
             AdvancedParticleProperties[] waterBloodParticleProperties = new AdvancedParticleProperties[]
             {
@@ -561,26 +640,6 @@ namespace BloodyStory
             };//*/
 
             player.Entity.World.SpawnParticles(bloodParticleProperties);
-        }
-
-        private static string GetBleedoutMessage(IServerPlayer player)
-        {
-            SyncedTreeAttribute playerAttributes = player.Entity.WatchedAttributes;
-
-            EnumDamageType lastHitType = (EnumDamageType)playerAttributes.GetInt(lastHitTypeAttr, (int)EnumDamageType.Injury);
-            EnumDamageSource lastHitSource = (EnumDamageSource)playerAttributes.GetInt(lastHitSourceAttr, (int)EnumDamageSource.Unknown);
-            string lastHitEntity = playerAttributes.GetString("deathByEntity", "Crustacean the Soup");
-            string lastHitEntityLangCode = playerAttributes.GetString("deathByEntityLangCode", "Crustacean the Soup");
-            string playerName = playerAttributes.GetString("deathByPlayer", "Crustacean the Soup"); 
-
-            string message = "Player " + player.PlayerName + " bled out. "; //TODO: proper messages for this
-            message += "Damage type: " + lastHitType.ToString();
-            message += ". Source: " + lastHitSource.ToString();
-            message += ". Entity: " + lastHitEntity;
-            message += ". EntityLangCode: " + lastHitEntityLangCode;
-            message += ". Player: " + playerName;
-
-            return message;
         }
 
         private TextCommandResult BleedCommand(TextCommandCallingArgs args)
