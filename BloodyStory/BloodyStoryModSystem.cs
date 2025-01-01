@@ -41,8 +41,6 @@ namespace BloodyStory
         public float satietyConsumption = 1f; // hunger saturation consumed per point of hp restored (sans bonus)
 
         public float timeDilation = 1.0f; // to adjust simulated second speed, for if game speed is changed
-
-        public bool virtualTime = false; // whether to use virtual time (from sampling game clock) or realtime (from tick dt)
     }
 
     [ProtoContract]
@@ -552,27 +550,6 @@ namespace BloodyStory
                 }
             };
 
-            /*
-            SimpleParticleProperties[] waterBloodParticleProperties = new SimpleParticleProperties[]{new(
-                1, //minQuantity
-                1, //maxQuantity
-                ColorUtil.ColorFromRgba(0, 0, 255, 255), //colour
-                new Vec3d(), //minPos
-                new Vec3d(), //maxPos
-                new Vec3f(0f, 0f, 0.5f), //minVelocity
-                new Vec3f(0.5f, 0.5f, 0.5f), //maxVelocity
-                1, //lifeLength
-                0, //gravityEffect
-                0.2f, //minSize
-                0.5f, //maxSize
-                EnumParticleModel.Quad //model
-                )
-            {
-                ShouldDieInAir = false,
-                ShouldSwimOnLiquid = true,
-                ShouldDieInLiquid = false
-            } }; //*/
-
             float posOffset_x = (float)(0.2f * Math.Cos(playerYaw + (Math.PI / 2)));
             float posOffset_y = (float)(-0.2f * Math.Sin(playerYaw + (Math.PI / 2)));
 
@@ -606,38 +583,6 @@ namespace BloodyStory
                 DeathParticles = waterBloodParticleProperties,
                 ParticleModel = EnumParticleModel.Cube
             };
-
-            /*
-            SimpleParticleProperties bloodParticleProperties = new(
-                1, //minQuantity
-                1, //maxQuantity
-                ColorUtil.ColorFromRgba(0, 0, 255, 255), //colour
-                new Vec3d(), //minPos
-                new Vec3d(), //maxPos
-                new Vec3f(0f, 0f, 0.5f), //minVelocity
-                new Vec3f(0.5f, 0.5f, 1.5f), //maxVelocity
-                1, //lifeLength
-                1, //gravityEffect
-                0.2f, //minSize
-                0.5f //maxSize
-                 )
-            {
-                ShouldDieInLiquid = true,
-
-                MinPos = player.Entity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + (Math.PI / 2)), bloodHeight, 0.2f * Math.Sin(playerYaw + (Math.PI / 2))),
-                AddPos = new Vec3d(0.4f * Math.Cos(playerYaw + (Math.PI / 2)), 0.4f, -0.4f * Math.Sin(playerYaw + (Math.PI / 2))),
-
-                MinQuantity = (float)bleedAmount / 2,
-                AddQuantity = (float)bleedAmount * 2,
-
-                MinVelocity = new Vec3f(0.7f * (float)Math.Cos(playerYaw), -0.35f, (float)(-0.7f * Math.Sin(playerYaw))),
-                AddVelocity = new Vec3f(0.7f * (float)Math.Cos(playerYaw), 0.7f, (float)(-0.7f * Math.Sin(playerYaw))),
-
-                ParentVelocity = player.Entity.Pos.Motion.ToVec3f(),
-                ParentVelocityWeight = 0f,
-
-                SecondaryParticles = waterBloodParticleProperties
-            };//*/
 
             player.Entity.World.SpawnParticles(bloodParticleProperties);
         }

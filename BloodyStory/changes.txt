@@ -8,4 +8,4 @@
 
 - Blood particles improved:-
 	- Blood particles now become neat blood clouds in water
-	- 
+	- Blood particles now inherit players' momentum
