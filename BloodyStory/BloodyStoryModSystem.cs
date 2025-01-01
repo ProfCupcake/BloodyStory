@@ -425,7 +425,7 @@ namespace BloodyStory
             float playerYaw = player.Entity.Pos.Yaw;
             playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn? 
 
-            SimpleParticleProperties[] waterBloodParticleProperties = {new(
+            SimpleParticleProperties[] waterBloodParticleProperties = new SimpleParticleProperties[]{new(
                 1, //minQuantity
                 1, //maxQuantity
                 ColorUtil.ColorFromRgba(0, 0, 255, 255), //colour
@@ -434,7 +434,7 @@ namespace BloodyStory
                 new Vec3f(0f, 0f, 0.5f), //minVelocity
                 new Vec3f(0.5f, 0.5f, 0.5f), //maxVelocity
                 1, //lifeLength
-                1, //gravityEffect
+                0, //gravityEffect
                 0.2f, //minSize
                 0.5f, //maxSize
                 EnumParticleModel.Quad //model
@@ -442,10 +442,44 @@ namespace BloodyStory
             {
                 ShouldDieInAir = false,
                 ShouldSwimOnLiquid = true,
-                ShouldDieInLiquid = false,
-                GravityEffect = 0
-            } };
+                ShouldDieInLiquid = false
+            } }; //*/
 
+            AdvancedParticleProperties bloodParticleProperties = new AdvancedParticleProperties()
+            {
+                Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f),
+                HsvaColor = new NatFloat[]
+                {
+                    NatFloat.Zero,
+                    NatFloat.createUniform(255f,0f),
+                    NatFloat.createUniform(255f,0f),
+                    NatFloat.createUniform(255f,0f)
+                },
+                basePos = player.Entity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + (Math.PI / 2)), bloodHeight, 0.2f * Math.Sin(playerYaw + (Math.PI / 2))),
+                PosOffset = new NatFloat[]
+                {
+                    NatFloat.createUniform((float)(0.2f * Math.Cos(playerYaw + (Math.PI / 2))), (float)(0.2f * Math.Cos(playerYaw + (Math.PI / 2)))),
+                    NatFloat.createUniform(0.2f,0.2f),
+                    NatFloat.createUniform((float)(-0.2f * Math.Sin(playerYaw + (Math.PI / 2))),(float)(-0.2f * Math.Sin(playerYaw + (Math.PI / 2))))
+                },
+                LifeLength = NatFloat.One,
+                GravityEffect = NatFloat.One,
+                Size = NatFloat.createUniform(0.35f, 0.15f),
+                DieInLiquid = false,
+                SwimOnLiquid = true,
+                Velocity = new NatFloat[]
+                {
+                    NatFloat.createUniform(1.05f * (float)Math.Cos(playerYaw), 0.35f * (float)Math.Cos(playerYaw)),
+                    NatFloat.createUniform(0.175f, 0.5025f),
+                    NatFloat.createUniform(-1.05f * (float)Math.Sin(playerYaw), -0.35f * (float)Math.Sin(playerYaw))
+                },
+                //DeathParticles = waterBloodParticleProperties
+                ParticleModel = EnumParticleModel.Cube
+            };
+
+            
+
+            /*
             SimpleParticleProperties bloodParticleProperties = new(
                 1, //minQuantity
                 1, //maxQuantity
@@ -474,8 +508,8 @@ namespace BloodyStory
                 ParentVelocity = player.Entity.Pos.Motion.ToVec3f(),
                 ParentVelocityWeight = 0f,
 
-                DeathParticles = waterBloodParticleProperties
-            };
+                SecondaryParticles = waterBloodParticleProperties
+            };//*/
 
             player.Entity.World.SpawnParticles(bloodParticleProperties);
         }
