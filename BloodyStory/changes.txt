@@ -5,3 +5,7 @@
 
 - Mod no longer prevents vanilla death messages on bleedout
 - Also removed mod death messages (which were still a placeholder anyway)
+
+- Blood particles improved:-
+	- Blood particles now become neat blood clouds in water
+	- 

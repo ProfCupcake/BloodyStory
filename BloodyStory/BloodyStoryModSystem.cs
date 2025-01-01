@@ -69,13 +69,13 @@ namespace BloodyStory
         double lastUpdate = -1;
 
 
-        ICoreAPI api;
-        ICoreClientAPI capi;
-        ICoreServerAPI sapi;
+        static ICoreAPI api;
+        static ICoreClientAPI capi;
+        static ICoreServerAPI sapi;
 
         public override void Start(ICoreAPI api)
         {
-            this.api = api;
+            BloodyStoryModSystem.api = api;
 
             modConfig = api.LoadModConfig<BloodyStoryModConfig>("BloodyStory.json");
             if (modConfig == null)
@@ -83,6 +83,8 @@ namespace BloodyStory
                 modConfig = new BloodyStoryModConfig();
                 api.StoreModConfig(modConfig, "BloodyStory.json");
             }
+
+            api.World.Config.SetFloat("playerHealthRegenSpeed", 0f);
 
             harmony = new("com.profcupcake.bloodystory");
         }
@@ -95,7 +97,7 @@ namespace BloodyStory
 
         public override void StartServerSide(ICoreServerAPI api)
         {
-            this.sapi = api;
+            sapi = api;
 
             sapi.Event.PlayerNowPlaying += OnPlayerJoined;
             sapi.Event.PlayerRespawn += OnPlayerRespawn;
@@ -149,9 +151,12 @@ namespace BloodyStory
 
         public override void StartClientSide(ICoreClientAPI api)
         {
-            this.capi = api;
+            capi = api;
 
-            api.World.Config.SetFloat("playerHealthRegenSpeed", 0f);
+            IClientPlayer player = capi.World.Player;
+
+            capi.Event.RegisterGameTickListener((float dt) => ClientTick(dt, player), tickRate);
+
         }
 
         private void OnPlayerJoined(IServerPlayer byPlayer)
@@ -292,6 +297,14 @@ namespace BloodyStory
             lastHit[byPlayer] = dmgSource;
         }
 
+        private void ClientTick(float dt, IClientPlayer player)
+        {
+            if (player.Entity.WatchedAttributes.GetDouble(bleedAttr) > 0f)
+            {
+                SpawnBloodParticles(player);
+            }
+        }
+
         private void Tick(float dt)
         {
             dt *= sapi.World.Calendar.CalendarSpeedMul * sapi.World.Calendar.SpeedOfTime; // realtime -> game time
@@ -336,7 +349,7 @@ namespace BloodyStory
 
                 if (bleedRate > 0)
                 {
-                    SpawnBloodParticles(player);
+                    //SpawnBloodParticles(player);
 
                     double dt_peak = (bleedDmg - (regenRate * modConfig.bleedQuotient)) / modConfig.bleedHealRate;
                     if (dt_peak < dt)
@@ -413,7 +426,7 @@ namespace BloodyStory
             return (min + (max - min) * (float)Math.Pow(w,p));
         }
 
-        private static void SpawnBloodParticles(IServerPlayer player)
+        private static void SpawnBloodParticles(IClientPlayer player)
         {
             double bleedAmount = player.Entity.WatchedAttributes.GetDouble(bleedAttr);
             bleedAmount /= (player.Entity.Controls.Sneak ? modConfig.sneakMultiplier : 1);
@@ -421,7 +434,7 @@ namespace BloodyStory
             double bloodHeight = player.Entity.LocalEyePos.Y/2;
             if (player.Entity.Controls.FloorSitting) bloodHeight /= 4;
             else if (player.Entity.Controls.Sneak) bloodHeight /= 2;
-            
+
             float playerYaw = player.Entity.Pos.Yaw;
             playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn? 
 
@@ -430,12 +443,12 @@ namespace BloodyStory
                 new()
                 {
                     Quantity = NatFloat.One,
-                    ParentVelocityWeight = 0.5f,
+                    ParentVelocityWeight = 1f,
                     Velocity = new NatFloat[]
                     {
-                        NatFloat.Zero,
-                        NatFloat.Zero,
-                        NatFloat.Zero
+                        NatFloat.createUniform(0f, 1f),
+                        NatFloat.createUniform(0f, 1f),
+                        NatFloat.createUniform(0f, 1f)
                     },
                     HsvaColor = new NatFloat[]
                     {
@@ -453,7 +466,7 @@ namespace BloodyStory
                     ParticleModel = EnumParticleModel.Quad,
                     DieInAir = true,
                     SwimOnLiquid = false,
-                    GravityEffect = NatFloat.Zero,
+                    GravityEffect = NatFloat.createUniform(0.05f, 0.05f),
                     Size = NatFloat.createUniform(0.2f, 0.15f),
                     SizeEvolve = EvolvingNatFloat.create(EnumTransformFunction.LINEARINCREASE, 1f),
                     OpacityEvolve = EvolvingNatFloat.create(EnumTransformFunction.LINEARNULLIFY, -255f)
@@ -481,6 +494,9 @@ namespace BloodyStory
                 ShouldDieInLiquid = false
             } }; //*/
 
+            float posOffset_x = (float)(0.2f * Math.Cos(playerYaw + (Math.PI / 2)));
+            float posOffset_y = (float)(-0.2f * Math.Sin(playerYaw + (Math.PI / 2)));
+
             AdvancedParticleProperties bloodParticleProperties = new AdvancedParticleProperties()
             {
                 Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f),
@@ -494,9 +510,9 @@ namespace BloodyStory
                 basePos = player.Entity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + (Math.PI / 2)), bloodHeight, 0.2f * Math.Sin(playerYaw + (Math.PI / 2))),
                 PosOffset = new NatFloat[]
                 {
-                    NatFloat.createUniform((float)(0.2f * Math.Cos(playerYaw + (Math.PI / 2))), (float)(0.2f * Math.Cos(playerYaw + (Math.PI / 2)))),
+                    NatFloat.createUniform(posOffset_x, posOffset_x),
                     NatFloat.createUniform(0.2f,0.2f),
-                    NatFloat.createUniform((float)(-0.2f * Math.Sin(playerYaw + (Math.PI / 2))),(float)(-0.2f * Math.Sin(playerYaw + (Math.PI / 2))))
+                    NatFloat.createUniform(posOffset_y, posOffset_y)
                 },
                 LifeLength = NatFloat.One,
                 GravityEffect = NatFloat.One,
@@ -504,15 +520,13 @@ namespace BloodyStory
                 DieInLiquid = true,
                 Velocity = new NatFloat[]
                 {
-                    NatFloat.createUniform(1.05f * (float)Math.Cos(playerYaw), 0.35f * (float)Math.Cos(playerYaw)),
-                    NatFloat.createUniform(0.175f, 0.5025f),
-                    NatFloat.createUniform(-1.05f * (float)Math.Sin(playerYaw), -0.35f * (float)Math.Sin(playerYaw))
+                    NatFloat.createUniform((float)((1.05f * Math.Cos(playerYaw)) + player.Entity.Pos.Motion.X), 0.35f * (float)Math.Cos(playerYaw)),
+                    NatFloat.createUniform(0.175f + (float)player.Entity.Pos.Motion.Y, 0.5025f),
+                    NatFloat.createUniform((float)((-1.05f * Math.Sin(playerYaw)) + player.Entity.Pos.Motion.Z), -0.35f * (float)Math.Sin(playerYaw))
                 },
                 DeathParticles = waterBloodParticleProperties,
                 ParticleModel = EnumParticleModel.Cube
             };
-
-            
 
             /*
             SimpleParticleProperties bloodParticleProperties = new(
