@@ -525,9 +525,9 @@ namespace BloodyStory
                     ParentVelocityWeight = 1f,
                     Velocity = new NatFloat[]
                     {
-                        NatFloat.createUniform(0f, 1f),
-                        NatFloat.createUniform(0f, 1f),
-                        NatFloat.createUniform(0f, 1f)
+                        NatFloat.Zero,
+                        NatFloat.Zero,
+                        NatFloat.Zero
                     },
                     HsvaColor = new NatFloat[]
                     {
