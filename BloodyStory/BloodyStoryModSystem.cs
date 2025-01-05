@@ -12,6 +12,7 @@ using ProtoBuf;
 
 namespace BloodyStory
 {
+    [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     public class BloodyStoryModConfig // TODO: proper config documentation
     {
         public double baseRegen = 0.02f; // hp regen per second
@@ -46,12 +47,6 @@ namespace BloodyStory
     [ProtoContract]
     public class NetMessage_Request
     {
-    }
-    [ProtoContract]
-    public class NetMessage_Send
-    {
-        [ProtoMember(1)]
-        public string message;
     }
 
     [HarmonyPatch]
@@ -100,7 +95,7 @@ namespace BloodyStory
 
             sapi.Network.RegisterChannel(netChannel)
                 .RegisterMessageType(typeof(NetMessage_Request))
-                .RegisterMessageType(typeof(NetMessage_Send))
+                .RegisterMessageType(typeof(BloodyStoryModConfig))
                 .SetMessageHandler<NetMessage_Request>(Net_HandleRequest);
 
             ReloadConfig();
@@ -137,24 +132,14 @@ namespace BloodyStory
 
         static private void SendConfig(IServerPlayer player)
         {
-            NetMessage_Send send = new()
-            {
-                message = JsonUtil.ToString<BloodyStoryModConfig>(modConfig)
-            };
-
             sapi.Network.GetChannel(netChannel)
-                .SendPacket<NetMessage_Send>(send, player);
+                .SendPacket<BloodyStoryModConfig>(modConfig, player);
         }
 
         static private void BroadcastConfig()
         {
-            NetMessage_Send send = new()
-            {
-                message = JsonUtil.ToString<BloodyStoryModConfig>(modConfig)
-            };
-
             sapi.Network.GetChannel(netChannel)
-                .BroadcastPacket<NetMessage_Send>(send);
+                .BroadcastPacket<BloodyStoryModConfig>(modConfig);
         }
         
         private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
@@ -205,13 +190,13 @@ namespace BloodyStory
         {
             capi.Network.RegisterChannel(netChannel)
                 .RegisterMessageType(typeof(NetMessage_Request))
-                .RegisterMessageType(typeof(NetMessage_Send))
-                .SetMessageHandler<NetMessage_Send>(Net_HandleSend);
+                .RegisterMessageType(typeof(BloodyStoryModConfig))
+                .SetMessageHandler<BloodyStoryModConfig>(Net_HandleSend);
         }
 
-        static private void Net_HandleSend(NetMessage_Send send)
+        static private void Net_HandleSend(BloodyStoryModConfig send)
         {
-            modConfig = JsonUtil.FromString<BloodyStoryModConfig>(send.message);
+            modConfig = send;
         }
 
         static private void RequestConfig()
