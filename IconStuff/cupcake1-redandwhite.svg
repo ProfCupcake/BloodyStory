@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.0"
+   width="1280.000000pt"
+   height="1257.000000pt"
+   viewBox="0 0 1280.000000 1257.000000"
+   preserveAspectRatio="xMidYMid meet"
+   id="svg10"
+   sodipodi:docname="cupcake1-redandwhite.svg"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)">
+  <defs
+     id="defs14" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1616"
+     inkscape:window-height="1028"
+     id="namedview12"
+     showgrid="false"
+     inkscape:zoom="0.28162291"
+     inkscape:cx="903.20884"
+     inkscape:cy="825.26898"
+     inkscape:window-x="1432"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg10" />
+  <metadata
+     id="metadata2">
+Created by potrace 1.15, written by Peter Selinger 2001-2017
+<rdf:RDF>
+  <cc:Work
+     rdf:about="">
+    <dc:format>image/svg+xml</dc:format>
+    <dc:type
+       rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+    <dc:title></dc:title>
+  </cc:Work>
+</rdf:RDF>
+</metadata>
+  <g
+     transform="translate(0.000000,1257.000000) scale(0.100000,-0.100000)"
+     fill="#000000"
+     stroke="none"
+     id="g8">
+    <path
+       d="M6150 12555 c-707 -90 -1259 -524 -1349 -1060 l-12 -70 -125 -28 c-69 -16 -209 -52 -312 -82 -764 -219 -1401 -523 -1967 -939 -358 -263 -693 -596 -934 -930 l-72 -100 -108 -22 c-228 -46 -462 -145 -641 -272 -124 -87 -299 -263 -376 -377 -115 -168 -193 -353 -231 -542 -21 -109 -24 -375 -5 -478 41 -221 133 -433 265 -611 72 -97 237 -258 341 -331 501 -355 1186 -410 1741 -138 61 30 130 66 155 81 l45 26 55 -37 c133 -89 359 -184 535 -225 236 -55 523 -57 770 -4 159 33 373 119 526 210 l45 27 64 -43 c92 -63 260 -144 380 -184 476 -159 1032 -100 1440 151 l65 40 50 -34 c81 -55 253 -139 360 -176 221 -76 401 -103 644 -94 268 10 490 67 719 183 l123 63 61 -36 c144 -84 359 -161 547 -195 164 -30 438 -30 602 0 198 36 422 118 573 210 37 23 70 42 73 42 3 0 37 -20 77 -44 167 -104 366 -184 572 -228 97 -20 135 -23 344 -23 206 1 248 4 340 23 445 97 802 332 1036 683 103 154 168 312 210 509 25 118 26 380 1 504 -60 298 -182 522 -406 747 -185 185 -402 318 -641 395 l-92 29 -92 140 c-262 397 -574 722 -1011 1052 -392 295 -934 584 -1467 782 -275 102 -746 238 -978 282 -36 6 -70 16 -76 21 -6 4 -14 31 -18 58 -4 28 -20 90 -37 138 -160 456 -640 803 -1244 898 -143 22 -424 27 -565 9z"
+       id="path4"
+       style="fill:#ff0000;fill-opacity:1" />
+    <path
+       d="M1743 5857 c5 -14 138 -400 237 -692 38 -110 101 -294 140 -410 39 -115 102 -300 140 -410 37 -110 96 -281 130 -380 34 -99 93 -270 130 -380 38 -110 100 -293 139 -407 39 -115 102 -299 140 -410 38 -112 97 -284 131 -383 34 -99 93 -270 130 -380 38 -110 100 -292 138 -405 39 -113 102 -297 140 -410 148 -434 335 -979 364 -1061 l30 -86 746 -7 c411 -4 1303 -11 1982 -16 679 -5 1530 -12 1890 -16 l655 -6 67 208 c62 194 230 715 496 1539 61 187 134 412 162 500 28 88 101 313 162 500 60 187 181 561 268 830 87 270 208 643 268 830 61 187 134 412 162 500 132 410 270 836 284 874 10 31 11 43 3 46 -7 2 -777 6 -1712 9 -2369 8 -6112 25 -6828 30 -454 3 -597 2 -594 -7z"
+       id="path6"
+       style="fill:#ffffff;fill-opacity:1" />
+  </g>
+</svg>

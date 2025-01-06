@@ -1,13 +1,14 @@
 {
-    "type": "code",
-    "modid": "BloodyStory",
-    "name": "BloodyStory",
-    "authors": [
-        "Professor Cupcake"
-    ],
-    "description": "Adds bleeding, healing, and a new bandage",
-    "version": "0.0.3",
-    "dependencies": {
-        "game": ""
-    }
+  "type": "code",
+  "modid": "bloodystory",
+  "name": "BloodyStory",
+  "authors": [
+    "Professor Cupcake"
+  ],
+  "description": "Changes all combat damage to bleeding",
+  "version": "0.0.4",
+  "dependencies": {
+    "game": "1.20.0-rc.8"
+  },
+  "side": "universal"
 }

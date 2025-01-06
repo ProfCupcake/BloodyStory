@@ -7,10 +7,12 @@ using Vintagestory.GameContent;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using HarmonyLib;
-using Vintagestory.API.Util;
+using System.Collections.Generic;
+using ProtoBuf;
 
 namespace BloodyStory
 {
+    [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     public class BloodyStoryModConfig // TODO: proper config documentation
     {
         public double baseRegen = 0.02f; // hp regen per second
@@ -30,6 +32,8 @@ namespace BloodyStory
 
         public double bleedCautMultiplier = 1f; // multiplier for how much bleed is reduced by fire damage
 
+        public double bloodParticleMultiplier = 1f; // multiplier for the quantity of blood particles produced
+
         public float bandageMultiplier = 1f; // multiplier for the amount of bleed reduction when using bandages/poultice
 
         public float maxSatietyMultiplier = 1.2f; // multiplier for regen rate at maximum hunger saturation
@@ -38,12 +42,15 @@ namespace BloodyStory
         public float satietyConsumption = 1f; // hunger saturation consumed per point of hp restored (sans bonus)
 
         public float timeDilation = 1.0f; // to adjust simulated second speed, for if game speed is changed
+    }
 
-        public bool virtualTime = false; // whether to use virtual time (from sampling game clock) or realtime (from tick dt)
+    [ProtoContract]
+    public class NetMessage_Request
+    {
     }
 
     [HarmonyPatch]
-    public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point?
+    public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point? (probably a separate mod)
     {
         static BloodyStoryModConfig modConfig;
 
@@ -51,31 +58,27 @@ namespace BloodyStory
 
         static readonly string bleedAttr = "BS_bleed";
         static readonly string regenAttr = "BS_regen";
-        
-        static readonly string lastHitTypeAttr = "BS_lastHit_Type";
-        static readonly string lastHitSourceAttr = "BS_lastHit_Source";
 
         static readonly string sitStartTimeAttr = "BS_sitStartTime";
 
+        static readonly string netChannel = "BS_networkChannel";
+
         static readonly int tickRate = 1000/15;
+
+        static Dictionary<IServerPlayer, DamageSource> lastHit = new();
 
         double lastUpdate = -1;
 
 
-        ICoreAPI api;
-        ICoreClientAPI capi;
-        ICoreServerAPI sapi;
+        static ICoreAPI api;
+        static ICoreClientAPI capi;
+        static ICoreServerAPI sapi;
 
         public override void Start(ICoreAPI api)
         {
-            this.api = api;
+            BloodyStoryModSystem.api = api;
 
-            modConfig = api.LoadModConfig<BloodyStoryModConfig>("BloodyStory.json");
-            if (modConfig == null)
-            {
-                modConfig = new BloodyStoryModConfig();
-                api.StoreModConfig(modConfig, "BloodyStory.json");
-            }
+            api.World.Config.SetFloat("playerHealthRegenSpeed", 0f);
 
             harmony = new("com.profcupcake.bloodystory");
         }
@@ -88,8 +91,15 @@ namespace BloodyStory
 
         public override void StartServerSide(ICoreServerAPI api)
         {
-            this.sapi = api;
+            sapi = api;
 
+            sapi.Network.RegisterChannel(netChannel)
+                .RegisterMessageType(typeof(NetMessage_Request))
+                .RegisterMessageType(typeof(BloodyStoryModConfig))
+                .SetMessageHandler<NetMessage_Request>(Net_HandleRequest);
+
+            ReloadConfig();
+            
             sapi.Event.PlayerNowPlaying += OnPlayerJoined;
             sapi.Event.PlayerRespawn += OnPlayerRespawn;
             sapi.Event.RegisterGameTickListener(Tick, tickRate);
@@ -110,12 +120,36 @@ namespace BloodyStory
             sapi.ChatCommands.Create("bsconfigreload")
                 .WithDescription("Reloads Bloody Story config file")
                 .RequiresPrivilege(Privilege.root)
-                .HandleWith(ReloadConfig);
+                .HandleWith(ReloadConfigCommand);
 
             harmony.PatchAll();
         }
         
-        private TextCommandResult ReloadConfig(TextCommandCallingArgs args)
+        static private void Net_HandleRequest(IServerPlayer player, NetMessage_Request request)
+        {
+            SendConfig(player);
+        }
+
+        static private void SendConfig(IServerPlayer player)
+        {
+            sapi.Network.GetChannel(netChannel)
+                .SendPacket<BloodyStoryModConfig>(modConfig, player);
+        }
+
+        static private void BroadcastConfig()
+        {
+            sapi.Network.GetChannel(netChannel)
+                .BroadcastPacket<BloodyStoryModConfig>(modConfig);
+        }
+        
+        private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
+        {
+            ReloadConfig();
+
+            return TextCommandResult.Success();
+        }
+
+        static private void ReloadConfig()
         {
             modConfig = api.LoadModConfig<BloodyStoryModConfig>("BloodyStory.json");
             if (modConfig == null)
@@ -124,7 +158,7 @@ namespace BloodyStory
                 api.StoreModConfig(modConfig, "BloodyStory.json");
             }
 
-            return TextCommandResult.Success();
+            BroadcastConfig();
         }
 
         private TextCommandResult MakeMeBleedCommand(TextCommandCallingArgs args)
@@ -142,14 +176,45 @@ namespace BloodyStory
 
         public override void StartClientSide(ICoreClientAPI api)
         {
-            this.capi = api;
+            capi = api;
+
+            TryRegisterClientNetChannel();
+
+            RequestConfig();
+
+            IClientPlayer player = capi.World.Player;
+
+            capi.Event.RegisterGameTickListener((float dt) => ClientTick(dt, player), tickRate);
+        }
+        static private void TryRegisterClientNetChannel()
+        {
+            capi.Network.RegisterChannel(netChannel)
+                .RegisterMessageType(typeof(NetMessage_Request))
+                .RegisterMessageType(typeof(BloodyStoryModConfig))
+                .SetMessageHandler<BloodyStoryModConfig>(Net_HandleSend);
+        }
+
+        static private void Net_HandleSend(BloodyStoryModConfig send)
+        {
+            modConfig = send;
+        }
+
+        static private void RequestConfig()
+        {
+            if (capi.Network.GetChannelState(netChannel) == EnumChannelState.Connected)
+            {
+                capi.Network.GetChannel(netChannel).SendPacket<NetMessage_Request>(new());
+            } else
+            {
+                TryRegisterClientNetChannel();
+            }
         }
 
         private void OnPlayerJoined(IServerPlayer byPlayer)
         {
             EntityBehaviorHealth pHealth = byPlayer.Entity.GetBehavior<EntityBehaviorHealth>();
 
-            pHealth._playerHealthRegenSpeed = 0; // this is probably ok
+            //pHealth._playerHealthRegenSpeed = 0; // this is probably ok
 
             pHealth.onDamaged += ((float dmg, DamageSource dmgSrc) => HandleDamage(byPlayer, dmg, dmgSrc));
         }
@@ -188,6 +253,7 @@ namespace BloodyStory
             switch (dmgSource.Type) // possible alternate implementation: dictionary, with dmg type as keys and functions as values?
             {
                 case EnumDamageType.Heal: // healing items reduce bleed rate
+                    // TODO: add alternative healing method, to allow direct healing?
                     damage *= modConfig.bandageMultiplier;
                     damage *= Math.Max(0, byPlayer.Entity.Stats.GetBlended("healingeffectivness"));
                     double bleedRate = playerAttributes.GetDouble(bleedAttr);
@@ -209,7 +275,6 @@ namespace BloodyStory
                     break;
                 case EnumDamageType.Poison: 
                     playerAttributes.SetDouble(bleedAttr, playerAttributes.GetDouble(bleedAttr) + damage);
-                    byPlayer.Entity.OnHurt(dmgSource, damage);
                     RecordLastHit(byPlayer, dmgSource);
                     ReceiveDamageReplacer(byPlayer, dmgSource, damage);
                     damage = 0;
@@ -279,70 +344,33 @@ namespace BloodyStory
         private static void RecordLastHit(IServerPlayer byPlayer, DamageSource dmgSource)
         {
             SyncedTreeAttribute playerAttributes = byPlayer.Entity.WatchedAttributes;
-            /*
-            byte[] dmgSourceBytes;
-            try
-            {
-                dmgSourceBytes = SerializerUtil.Serialize<DamageSource>(dmgSource);
-            }
-            catch (ArgumentNullException e)
-            {
-                dmgSourceBytes = null;
-            }
 
-            playerAttributes.SetBytes(lastHitBytesAttr, dmgSourceBytes);
-            //*/
-
-            playerAttributes.SetInt(lastHitTypeAttr, (int)dmgSource.Type);
-            playerAttributes.SetInt(lastHitSourceAttr, (int)dmgSource.Source);
-
-            if (dmgSource.CauseEntity != null)
-            {
-                playerAttributes.SetString("deathByEntityLangCode", "prefixandcreature-" + dmgSource.CauseEntity.Code.Path.Replace("-", ""));
-                playerAttributes.SetString("deathByEntity", dmgSource.CauseEntity.Code.ToString());
-
-                if (dmgSource.CauseEntity is EntityPlayer srcPlayer)
-                {
-                    playerAttributes.SetString("deathByPlayer", srcPlayer?.Player.PlayerName);
-                }
-                else playerAttributes.SetString("deathByPlayer", null);
-            } else
-            {
-                playerAttributes.SetString("deathByEntityLangCode", null);
-                playerAttributes.SetString("deathByEntity", null);
-                playerAttributes.SetString("deathByPlayer", null);
-            }
-            //*/
+            lastHit[byPlayer] = dmgSource;
         }
 
-        private void Tick(float dtr)
+        private void ClientTick(float dt, IClientPlayer player)
         {
-            dtr *= sapi.World.Calendar.CalendarSpeedMul * sapi.World.Calendar.SpeedOfTime; // realtime -> game time
-            dtr /= 30; // 24 hrs -> 48 mins
-            dtr *= modConfig.timeDilation;
-
-            if (lastUpdate <= 0)
+            if (player == null)
             {
-                lastUpdate = sapi.World.Calendar.ElapsedHours;
-                return;
+                player = capi.World.Player;
+                if (player == null) return;
             }
-            double dtv = sapi.World.Calendar.ElapsedHours - lastUpdate;
-            dtv *= 3600; // hours -> seconds
-            dtv /= 30; // 24 game hours -> 48 real minutes
-            dtv *= modConfig.timeDilation;
+            if (player.Entity.WatchedAttributes.GetDouble(bleedAttr) > 0f)
+            {
+                SpawnBloodParticles(player);
+            }
+        }
 
-            float dt = (modConfig.virtualTime ? (float)dtv : dtr);
+        private void Tick(float dt)
+        {
+            dt *= sapi.World.Calendar.CalendarSpeedMul * sapi.World.Calendar.SpeedOfTime; // realtime -> game time
+            dt /= 30; // 24 hrs -> 48 mins
+            dt *= modConfig.timeDilation;
 
             IServerPlayer[] players = (IServerPlayer[])sapi.World.AllOnlinePlayers;
             foreach (IServerPlayer player in players)
             {
                 if (player == null || player.ConnectionState != EnumClientState.Playing || !player.Entity.Alive) continue;
-
-                /*
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "dtr: "+dtr, EnumChatType.Notification);
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "dtv: "+dtv, EnumChatType.Notification);
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "-", EnumChatType.Notification);
-                //*/
 
                 SyncedTreeAttribute playerAttributes = player.Entity.WatchedAttributes;
                 EntityBehaviorHealth pHealth = player.Entity.GetBehavior<EntityBehaviorHealth>();
@@ -353,7 +381,7 @@ namespace BloodyStory
                 double regenRate = (pHunger.Saturation > 0) ? modConfig.baseRegen + (modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth)) : 0;
                 if (bleedRate <= 0)
                 {
-                    if (player.Entity.MountedOn is BlockEntityBed)
+                    if (player.Entity.MountedOn is not null and BlockEntityBed)
                     {
                         regenRate *= modConfig.regenBedMultiplier;
                     };
@@ -377,16 +405,15 @@ namespace BloodyStory
 
                 if (bleedRate > 0)
                 {
-                    SpawnBloodParticles(player);
+                    //SpawnBloodParticles(player);
 
                     double dt_peak = (bleedDmg - (regenRate * modConfig.bleedQuotient)) / modConfig.bleedHealRate;
                     if (dt_peak < dt)
                     {
                         if (CalculateDmgCum(dt_peak, bleedDmg, regenRate, regenBoost) > pHealth.Health)
                         {
-                            sapi.SendMessageToGroup(GlobalConstants.GeneralChatGroup, GetBleedoutMessage(player), EnumChatType.Notification);
-                            //DamageSource dmgSource = GetLastHitSource(player);
-                            player.Entity.Die(EnumDespawnReason.Death, null);
+                            DamageSource dmgSource;
+                            player.Entity.Die(EnumDespawnReason.Death, lastHit.TryGetValue(player, out dmgSource) ? dmgSource : null);
                             continue;
                         }
                     }
@@ -400,10 +427,8 @@ namespace BloodyStory
                 pHealth.Health = (float)Math.Min(pHealth.Health - CalculateDmgCum(dt, bleedDmg, regenRate, regenBoost), pHealth.MaxHealth); // TODO: handle edge case where bleeding would have stopped within dt given? (probably unnecessary)
                 if (pHealth.Health < 0)
                 {
-                    sapi.SendMessageToGroup(GlobalConstants.GeneralChatGroup, GetBleedoutMessage(player), EnumChatType.Notification);
-
-                    //DamageSource dmgSource = GetLastHitSource(player);
-                    player.Entity.Die(EnumDespawnReason.Death, null);
+                    DamageSource dmgSource;
+                    player.Entity.Die(EnumDespawnReason.Death, lastHit.TryGetValue(player, out dmgSource) ? dmgSource : null);
                     continue;
                 }
 
@@ -457,61 +482,94 @@ namespace BloodyStory
             return (min + (max - min) * (float)Math.Pow(w,p));
         }
 
-        private static void SpawnBloodParticles(IServerPlayer player)
+        private static void SpawnBloodParticles(IClientPlayer player)
         {
+            if (modConfig == null)
+            {
+                RequestConfig();
+                return;
+            }
+
             double bleedAmount = player.Entity.WatchedAttributes.GetDouble(bleedAttr);
+            bleedAmount /= (player.Entity.Controls.Sneak ? modConfig.sneakMultiplier : 1);
+            bleedAmount *= modConfig.bloodParticleMultiplier;
             double bloodHeight = player.Entity.LocalEyePos.Y/2;
             if (player.Entity.Controls.FloorSitting) bloodHeight /= 4;
             else if (player.Entity.Controls.Sneak) bloodHeight /= 2;
-            
+
             float playerYaw = player.Entity.Pos.Yaw;
+            playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
 
-            SimpleParticleProperties bloodParticleProperties = new(
-                1, //minQuantity
-                1, //maxQuantity
-                ColorUtil.ColorFromRgba(0, 0, 255, 255), //colour
-                new Vec3d(), //minPos
-                new Vec3d(), //maxPos
-                new Vec3f(0f, 0f, 0.5f), //minVelocity
-                new Vec3f(0.5f, 0.5f, 1.5f), //maxVelocity
-                1, //lifeLength
-                1, //gravityEffect
-                0.2f, //minSize
-                0.5f //maxSize
-                 ){
-                ShouldSwimOnLiquid = true,
+            AdvancedParticleProperties[] waterBloodParticleProperties = new AdvancedParticleProperties[]
+            {
+                new()
+                {
+                    Quantity = NatFloat.One,
+                    ParentVelocityWeight = 1f,
+                    Velocity = new NatFloat[]
+                    {
+                        NatFloat.Zero,
+                        NatFloat.Zero,
+                        NatFloat.Zero
+                    },
+                    HsvaColor = new NatFloat[]
+                    {
+                        NatFloat.Zero,
+                        NatFloat.createUniform(255f,0f),
+                        NatFloat.createUniform(255f,0f),
+                        NatFloat.createUniform(255f,0f)
+                    },
+                    PosOffset = new NatFloat[]
+                    {
+                        NatFloat.Zero,
+                        NatFloat.Zero,
+                        NatFloat.Zero
+                    },
+                    ParticleModel = EnumParticleModel.Quad,
+                    DieInAir = true,
+                    SwimOnLiquid = false,
+                    GravityEffect = NatFloat.createUniform(0.05f, 0.05f),
+                    Size = NatFloat.createUniform(0.2f, 0.15f),
+                    SizeEvolve = EvolvingNatFloat.create(EnumTransformFunction.LINEARINCREASE, 1f),
+                    OpacityEvolve = EvolvingNatFloat.create(EnumTransformFunction.LINEARNULLIFY, -255f)
+                }
+            };
 
-                MinPos = player.Entity.Pos.XYZ.Add(-0.2f * Math.Cos((double)(playerYaw + (Math.PI / 2))), bloodHeight, 0.2f * Math.Sin((double)(playerYaw + (Math.PI / 2)))),
-                AddPos = new Vec3d(0.4f * Math.Cos((double)(playerYaw + (Math.PI / 2))), 0.4f, -0.4f * Math.Sin((double)(playerYaw + (Math.PI / 2)))),
+            float posOffset_x = (float)(0.2f * Math.Cos(playerYaw + (Math.PI / 2)));
+            float posOffset_y = (float)(-0.2f * Math.Sin(playerYaw + (Math.PI / 2)));
 
-                MinQuantity = (float)bleedAmount / 4,
-                AddQuantity = (float)bleedAmount,
-
-                MinVelocity = new Vec3f(0.7f * (float)Math.Cos((double)playerYaw), -0.35f, -0.7f * (float)Math.Sin((double)playerYaw)),
-                AddVelocity = new Vec3f(0.7f * (float)Math.Cos((double)playerYaw), 0.7f, -0.7f * (float)Math.Sin((double)playerYaw))
+            AdvancedParticleProperties bloodParticleProperties = new AdvancedParticleProperties()
+            {
+                Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f),
+                HsvaColor = new NatFloat[]
+                {
+                    NatFloat.Zero,
+                    NatFloat.createUniform(255f,0f),
+                    NatFloat.createUniform(255f,0f),
+                    NatFloat.createUniform(255f,0f)
+                },
+                basePos = player.Entity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + (Math.PI / 2)), bloodHeight, 0.2f * Math.Sin(playerYaw + (Math.PI / 2))),
+                PosOffset = new NatFloat[]
+                {
+                    NatFloat.createUniform(posOffset_x, posOffset_x),
+                    NatFloat.createUniform(0.2f,0.2f),
+                    NatFloat.createUniform(posOffset_y, posOffset_y)
+                },
+                LifeLength = NatFloat.One,
+                GravityEffect = NatFloat.One,
+                Size = NatFloat.createUniform(0.35f, 0.15f),
+                DieInLiquid = true,
+                Velocity = new NatFloat[]
+                {
+                    NatFloat.createUniform((float)((1.05f * Math.Cos(playerYaw)) + player.Entity.Pos.Motion.X), 0.35f * (float)Math.Cos(playerYaw)),
+                    NatFloat.createUniform(0.175f + (float)player.Entity.Pos.Motion.Y, 0.5025f),
+                    NatFloat.createUniform((float)((-1.05f * Math.Sin(playerYaw)) + player.Entity.Pos.Motion.Z), -0.35f * (float)Math.Sin(playerYaw))
+                },
+                DeathParticles = waterBloodParticleProperties,
+                ParticleModel = EnumParticleModel.Cube
             };
 
             player.Entity.World.SpawnParticles(bloodParticleProperties);
-        }
-
-        private static string GetBleedoutMessage(IServerPlayer player)
-        {
-            SyncedTreeAttribute playerAttributes = player.Entity.WatchedAttributes;
-
-            EnumDamageType lastHitType = (EnumDamageType)playerAttributes.GetInt(lastHitTypeAttr, (int)EnumDamageType.Injury);
-            EnumDamageSource lastHitSource = (EnumDamageSource)playerAttributes.GetInt(lastHitSourceAttr, (int)EnumDamageSource.Unknown);
-            string lastHitEntity = playerAttributes.GetString("deathByEntity", "Crustacean the Soup");
-            string lastHitEntityLangCode = playerAttributes.GetString("deathByEntityLangCode", "Crustacean the Soup");
-            string playerName = playerAttributes.GetString("deathByPlayer", "Crustacean the Soup"); 
-
-            string message = "Player " + player.PlayerName + " bled out. "; //TODO: proper messages for this
-            message += "Damage type: " + lastHitType.ToString();
-            message += ". Source: " + lastHitSource.ToString();
-            message += ". Entity: " + lastHitEntity;
-            message += ". EntityLangCode: " + lastHitEntityLangCode;
-            message += ". Player: " + playerName;
-
-            return message;
         }
 
         private TextCommandResult BleedCommand(TextCommandCallingArgs args)
@@ -534,7 +592,7 @@ namespace BloodyStory
                 regenRate = modConfig.baseRegen + modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth);
                 if (bleedRate <= 0)
                 {
-                    regenRate *= player.Entity.MountedOn is BlockEntityBed ? modConfig.regenBedMultiplier : 1;
+                    regenRate *= player.Entity.MountedOn is not null and BlockEntityBed ? modConfig.regenBedMultiplier : 1;
                     if (player.Entity.Controls.FloorSitting)
                     {
                         long sitStartTime = playerAttributes.GetLong(sitStartTimeAttr);
