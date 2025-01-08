@@ -370,7 +370,7 @@ namespace BloodyStory
             IServerPlayer[] players = (IServerPlayer[])sapi.World.AllOnlinePlayers;
             foreach (IServerPlayer player in players)
             {
-                if (player == null || player.ConnectionState != EnumClientState.Playing || !player.Entity.Alive) continue;
+                if (player == null || player.ConnectionState != EnumClientState.Playing || !player.Entity.Alive || player.Entity.WatchedAttributes.GetBool("unconscious")) continue;
 
                 SyncedTreeAttribute playerAttributes = player.Entity.WatchedAttributes;
                 EntityBehaviorHealth pHealth = player.Entity.GetBehavior<EntityBehaviorHealth>();
