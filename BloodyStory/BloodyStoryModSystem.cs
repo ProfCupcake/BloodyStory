@@ -494,8 +494,6 @@ namespace BloodyStory
             bleedAmount /= (player.Entity.Controls.Sneak ? modConfig.sneakMultiplier : 1);
             bleedAmount *= modConfig.bloodParticleMultiplier;
             double bloodHeight = player.Entity.LocalEyePos.Y/2;
-            if (player.Entity.Controls.FloorSitting) bloodHeight /= 4;
-            else if (player.Entity.Controls.Sneak) bloodHeight /= 2;
 
             float playerYaw = player.Entity.Pos.Yaw;
             playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
