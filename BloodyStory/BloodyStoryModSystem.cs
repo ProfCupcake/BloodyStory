@@ -12,47 +12,39 @@ using ProtoBuf;
 
 namespace BloodyStory
 {
-    [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
-    public class BloodyStoryModConfig // TODO: proper config documentation
-    {
-        public double baseRegen = 0.02f; // hp regen per second
-        public double bonusRegen = 0.0016f; // added regen per point of additional max health; max bonus is this * 12.5
-
-        public double regenBoostRate = 0.5f; // additional hp regen per second for the duration of the food boost
-        public double regenBoostQuotient = 100f; // quotient for the amount of hp added per point of satiety increase for regen boost
-
-        public double regenBedMultiplier = 8f; // multiplier for regen when lying in bed
-
-        public int regenSitDelay = 5000; // delay before the sit boost is applied, in ms
-        public double regenSitMultiplier = 3f; // multiplier for regen when sitting
-
-        public double bleedHealRate = 0.15f; // natural bleeding reduction
-        public double bleedQuotient = 12f; // quotient for hp loss to bleed
-        public double sneakMultiplier = 8f; // multiplier for bleed quotient applied when sneaking
-
-        public double bleedCautMultiplier = 1f; // multiplier for how much bleed is reduced by fire damage
-
-        public double bloodParticleMultiplier = 1f; // multiplier for the quantity of blood particles produced
-
-        public float bandageMultiplier = 1f; // multiplier for the amount of bleed reduction when using bandages/poultice
-
-        public float maxSatietyMultiplier = 1.2f; // multiplier for regen rate at maximum hunger saturation
-        public float minSatietyMultiplier = 0f; // multiplier for regen rate at minimum hunger saturation
-
-        public float satietyConsumption = 1f; // hunger saturation consumed per point of hp restored (sans bonus)
-
-        public float timeDilation = 1.0f; // to adjust simulated second speed, for if game speed is changed
-    }
-
     [ProtoContract]
     public class NetMessage_Request
     {
     }
 
     [HarmonyPatch]
-    public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point? (probably a separate mod)
+    public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point
     {
-        static BloodyStoryModConfig modConfig;
+        private static BloodyStoryModConfig _modConfig;
+        
+        public static BloodyStoryModConfig modConfig
+        {
+            get
+            {
+                if (_modConfig == null)
+                {
+                    switch (api.Side)
+                    {
+                        case EnumAppSide.Server:
+                            _modConfig = new BloodyStoryModConfig();
+                            return _modConfig;
+                        case EnumAppSide.Client:
+                            RequestConfig();
+                            return null;
+                    }
+                }
+                return _modConfig;
+            }
+            set
+            {
+                _modConfig = value;
+            }
+        }
 
         Harmony harmony;
 
@@ -67,16 +59,16 @@ namespace BloodyStory
 
         static Dictionary<IServerPlayer, DamageSource> lastHit = new();
 
-        double lastUpdate = -1;
-
-
         static ICoreAPI api;
         static ICoreClientAPI capi;
         static ICoreServerAPI sapi;
 
         public override void Start(ICoreAPI api)
         {
+            base.Start(api);
             BloodyStoryModSystem.api = api;
+
+            api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
 
             api.World.Config.SetFloat("playerHealthRegenSpeed", 0f);
 
@@ -181,10 +173,6 @@ namespace BloodyStory
             TryRegisterClientNetChannel();
 
             RequestConfig();
-
-            IClientPlayer player = capi.World.Player;
-
-            capi.Event.RegisterGameTickListener((float dt) => ClientTick(dt, player), tickRate);
         }
         static private void TryRegisterClientNetChannel()
         {
@@ -249,6 +237,8 @@ namespace BloodyStory
             }
 
             if (dmgSource.Source == EnumDamageSource.Void) return damage;
+
+            if (playerAttributes.GetBool("unconscious")) return damage;
 
             switch (dmgSource.Type) // possible alternate implementation: dictionary, with dmg type as keys and functions as values?
             {
@@ -346,19 +336,6 @@ namespace BloodyStory
             SyncedTreeAttribute playerAttributes = byPlayer.Entity.WatchedAttributes;
 
             lastHit[byPlayer] = dmgSource;
-        }
-
-        private void ClientTick(float dt, IClientPlayer player)
-        {
-            if (player == null)
-            {
-                player = capi.World.Player;
-                if (player == null) return;
-            }
-            if (player.Entity.WatchedAttributes.GetDouble(bleedAttr) > 0f)
-            {
-                SpawnBloodParticles(player);
-            }
         }
 
         private void Tick(float dt)
@@ -467,7 +444,6 @@ namespace BloodyStory
                 
 
             }
-            lastUpdate = sapi.World.Calendar.ElapsedHours;
         }
 
         static double CalculateDmgCum(double dt, double bleedDmg, double regenRate, double regenBoost = 0)
@@ -480,94 +456,6 @@ namespace BloodyStory
         private static float Interpolate(float min, float max, float w, float p = 1)
         {
             return (min + (max - min) * (float)Math.Pow(w,p));
-        }
-
-        private static void SpawnBloodParticles(IClientPlayer player)
-        {
-            if (modConfig == null)
-            {
-                RequestConfig();
-                return;
-            }
-
-            double bleedAmount = player.Entity.WatchedAttributes.GetDouble(bleedAttr);
-            bleedAmount /= (player.Entity.Controls.Sneak ? modConfig.sneakMultiplier : 1);
-            bleedAmount *= modConfig.bloodParticleMultiplier;
-            double bloodHeight = player.Entity.LocalEyePos.Y/2;
-
-            float playerYaw = player.Entity.Pos.Yaw;
-            playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
-
-            AdvancedParticleProperties[] waterBloodParticleProperties = new AdvancedParticleProperties[]
-            {
-                new()
-                {
-                    Quantity = NatFloat.One,
-                    ParentVelocityWeight = 1f,
-                    Velocity = new NatFloat[]
-                    {
-                        NatFloat.Zero,
-                        NatFloat.Zero,
-                        NatFloat.Zero
-                    },
-                    HsvaColor = new NatFloat[]
-                    {
-                        NatFloat.Zero,
-                        NatFloat.createUniform(255f,0f),
-                        NatFloat.createUniform(255f,0f),
-                        NatFloat.createUniform(255f,0f)
-                    },
-                    PosOffset = new NatFloat[]
-                    {
-                        NatFloat.Zero,
-                        NatFloat.Zero,
-                        NatFloat.Zero
-                    },
-                    ParticleModel = EnumParticleModel.Quad,
-                    DieInAir = true,
-                    SwimOnLiquid = false,
-                    GravityEffect = NatFloat.createUniform(0.05f, 0.05f),
-                    Size = NatFloat.createUniform(0.2f, 0.15f),
-                    SizeEvolve = EvolvingNatFloat.create(EnumTransformFunction.LINEARINCREASE, 1f),
-                    OpacityEvolve = EvolvingNatFloat.create(EnumTransformFunction.LINEARNULLIFY, -255f)
-                }
-            };
-
-            float posOffset_x = (float)(0.2f * Math.Cos(playerYaw + (Math.PI / 2)));
-            float posOffset_y = (float)(-0.2f * Math.Sin(playerYaw + (Math.PI / 2)));
-
-            AdvancedParticleProperties bloodParticleProperties = new AdvancedParticleProperties()
-            {
-                Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f),
-                HsvaColor = new NatFloat[]
-                {
-                    NatFloat.Zero,
-                    NatFloat.createUniform(255f,0f),
-                    NatFloat.createUniform(255f,0f),
-                    NatFloat.createUniform(255f,0f)
-                },
-                basePos = player.Entity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + (Math.PI / 2)), bloodHeight, 0.2f * Math.Sin(playerYaw + (Math.PI / 2))),
-                PosOffset = new NatFloat[]
-                {
-                    NatFloat.createUniform(posOffset_x, posOffset_x),
-                    NatFloat.createUniform(0.2f,0.2f),
-                    NatFloat.createUniform(posOffset_y, posOffset_y)
-                },
-                LifeLength = NatFloat.One,
-                GravityEffect = NatFloat.One,
-                Size = NatFloat.createUniform(0.35f, 0.15f),
-                DieInLiquid = true,
-                Velocity = new NatFloat[]
-                {
-                    NatFloat.createUniform((float)((1.05f * Math.Cos(playerYaw)) + player.Entity.Pos.Motion.X), 0.35f * (float)Math.Cos(playerYaw)),
-                    NatFloat.createUniform(0.175f + (float)player.Entity.Pos.Motion.Y, 0.5025f),
-                    NatFloat.createUniform((float)((-1.05f * Math.Sin(playerYaw)) + player.Entity.Pos.Motion.Z), -0.35f * (float)Math.Sin(playerYaw))
-                },
-                DeathParticles = waterBloodParticleProperties,
-                ParticleModel = EnumParticleModel.Cube
-            };
-
-            player.Entity.World.SpawnParticles(bloodParticleProperties);
         }
 
         private TextCommandResult BleedCommand(TextCommandCallingArgs args)
