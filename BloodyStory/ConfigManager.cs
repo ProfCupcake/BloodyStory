@@ -5,6 +5,8 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using Vintagestory.API.Client;
+using Vintagestory.API.Common;
 
 namespace BloodyStory
 {
@@ -29,6 +31,7 @@ namespace BloodyStory
         public double bleedCautMultiplier = 1f; // multiplier for how much bleed is reduced by fire damage
 
         public double bloodParticleMultiplier = 1f; // multiplier for the quantity of blood particles produced
+        public double bloodParticleDelay = 0.05f;
 
         public float bandageMultiplier = 1f; // multiplier for the amount of bleed reduction when using bandages/poultice
 
@@ -43,8 +46,43 @@ namespace BloodyStory
     {
         private static readonly string configFilename = "bloodystory.json";
 
-        static internal BloodyStoryModConfig internalModConfig;
+        private static ICoreAPI api;
+        private static BloodyStoryModConfig _modConfig;
+        public static BloodyStoryModConfig modConfig
+        {
+            get
+            {
+                if (_modConfig == null) Reload();
+                return _modConfig;
+            }
+            set
+            {
+                _modConfig = value;
+            }
+        }
 
+        public static void Initialise(ICoreAPI api)
+        {
+            ConfigManager.api = api;
+        }
 
+        internal static void Reload()
+        {
+            switch (api.Side)
+            {
+                case (EnumAppSide.Server):
+                    _modConfig = api.LoadModConfig<BloodyStoryModConfig>(configFilename);
+                    if (_modConfig == null)
+                    {
+                        _modConfig = new BloodyStoryModConfig();
+                        api.StoreModConfig(_modConfig, configFilename);
+                    }
+                    NetManager.BroadcastConfig();
+                    break;
+                case (EnumAppSide.Client):
+                    NetManager.RequestConfig();
+                    break;
+            }
+        }
     }
 }

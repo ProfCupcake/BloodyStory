@@ -9,40 +9,18 @@ using Vintagestory.API.MathTools;
 using HarmonyLib;
 using System.Collections.Generic;
 using ProtoBuf;
+using static BloodyStory.BloodMath;
 
 namespace BloodyStory
 {
-    [ProtoContract]
-    public class NetMessage_Request
-    {
-    }
-
     [HarmonyPatch]
     public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point
     {
-        private static BloodyStoryModConfig _modConfig;
-        
         public static BloodyStoryModConfig modConfig
         {
             get
             {
-                if (_modConfig == null)
-                {
-                    switch (api.Side)
-                    {
-                        case EnumAppSide.Server:
-                            _modConfig = new BloodyStoryModConfig();
-                            return _modConfig;
-                        case EnumAppSide.Client:
-                            RequestConfig();
-                            return null;
-                    }
-                }
-                return _modConfig;
-            }
-            set
-            {
-                _modConfig = value;
+                return ConfigManager.modConfig;
             }
         }
 
@@ -67,6 +45,8 @@ namespace BloodyStory
         {
             base.Start(api);
             BloodyStoryModSystem.api = api;
+            NetManager.Initialise(api);
+            ConfigManager.Initialise(api);
 
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
 
@@ -84,17 +64,9 @@ namespace BloodyStory
         public override void StartServerSide(ICoreServerAPI api)
         {
             sapi = api;
-
-            sapi.Network.RegisterChannel(netChannel)
-                .RegisterMessageType(typeof(NetMessage_Request))
-                .RegisterMessageType(typeof(BloodyStoryModConfig))
-                .SetMessageHandler<NetMessage_Request>(Net_HandleRequest);
-
-            ReloadConfig();
             
             sapi.Event.PlayerNowPlaying += OnPlayerJoined;
             sapi.Event.PlayerRespawn += OnPlayerRespawn;
-            sapi.Event.RegisterGameTickListener(Tick, tickRate);
 
             sapi.ChatCommands.Create("bleed")
                 .WithDescription("Outputs precise bleed and regen levels")
@@ -116,22 +88,10 @@ namespace BloodyStory
 
             harmony.PatchAll();
         }
-        
-        static private void Net_HandleRequest(IServerPlayer player, NetMessage_Request request)
-        {
-            SendConfig(player);
-        }
-
-        static private void SendConfig(IServerPlayer player)
-        {
-            sapi.Network.GetChannel(netChannel)
-                .SendPacket<BloodyStoryModConfig>(modConfig, player);
-        }
 
         static private void BroadcastConfig()
         {
-            sapi.Network.GetChannel(netChannel)
-                .BroadcastPacket<BloodyStoryModConfig>(modConfig);
+            NetManager.BroadcastConfig();
         }
         
         private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
@@ -143,12 +103,7 @@ namespace BloodyStory
 
         static private void ReloadConfig()
         {
-            modConfig = api.LoadModConfig<BloodyStoryModConfig>("BloodyStory.json");
-            if (modConfig == null)
-            {
-                modConfig = new BloodyStoryModConfig();
-                api.StoreModConfig(modConfig, "BloodyStory.json");
-            }
+            ConfigManager.Reload();
 
             BroadcastConfig();
         }
@@ -170,32 +125,6 @@ namespace BloodyStory
         {
             capi = api;
 
-            TryRegisterClientNetChannel();
-
-            RequestConfig();
-        }
-        static private void TryRegisterClientNetChannel()
-        {
-            capi.Network.RegisterChannel(netChannel)
-                .RegisterMessageType(typeof(NetMessage_Request))
-                .RegisterMessageType(typeof(BloodyStoryModConfig))
-                .SetMessageHandler<BloodyStoryModConfig>(Net_HandleSend);
-        }
-
-        static private void Net_HandleSend(BloodyStoryModConfig send)
-        {
-            modConfig = send;
-        }
-
-        static private void RequestConfig()
-        {
-            if (capi.Network.GetChannelState(netChannel) == EnumChannelState.Connected)
-            {
-                capi.Network.GetChannel(netChannel).SendPacket<NetMessage_Request>(new());
-            } else
-            {
-                TryRegisterClientNetChannel();
-            }
         }
 
         private void OnPlayerJoined(IServerPlayer byPlayer)
@@ -444,18 +373,6 @@ namespace BloodyStory
                 
 
             }
-        }
-
-        static double CalculateDmgCum(double dt, double bleedDmg, double regenRate, double regenBoost = 0)
-        {
-            double num = 2 * bleedDmg * dt - modConfig.bleedHealRate * Math.Pow(dt, 2) - 2 * modConfig.bleedQuotient * regenRate * dt;
-            double den = 2 * modConfig.bleedQuotient;
-            return (num / den) - Math.Min(dt*modConfig.regenBoostRate, regenBoost);
-        }
-
-        private static float Interpolate(float min, float max, float w, float p = 1)
-        {
-            return (min + (max - min) * (float)Math.Pow(w,p));
         }
 
         private TextCommandResult BleedCommand(TextCommandCallingArgs args)
