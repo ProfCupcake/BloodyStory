@@ -27,6 +27,10 @@
       <HintPath>$(VINTAGE_STORY)/Lib/protobuf-net.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="CombatOverhaul">
+      <HintPath>../lib/CombatOverhaul.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
 <ItemGroup>

@@ -13,7 +13,6 @@ using static BloodyStory.BloodMath;
 
 namespace BloodyStory
 {
-    [HarmonyPatch]
     public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point
     {
         public static BloodyStoryModConfig modConfig
@@ -23,8 +22,6 @@ namespace BloodyStory
                 return ConfigManager.modConfig;
             }
         }
-
-        Harmony harmony;
 
         static readonly string bleedAttr = "BS_bleed";
         static readonly string regenAttr = "BS_regen";
@@ -51,22 +48,16 @@ namespace BloodyStory
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
 
             api.World.Config.SetFloat("playerHealthRegenSpeed", 0f);
-
-            harmony = new("com.profcupcake.bloodystory");
         }
 
         public override void Dispose()
         {
             base.Dispose();
-            harmony.UnpatchAll("com.profcupcake.bloodystory");
         }
 
         public override void StartServerSide(ICoreServerAPI api)
         {
             sapi = api;
-            
-            sapi.Event.PlayerNowPlaying += OnPlayerJoined;
-            sapi.Event.PlayerRespawn += OnPlayerRespawn;
 
             sapi.ChatCommands.Create("bleed")
                 .WithDescription("Outputs precise bleed and regen levels")
@@ -85,8 +76,6 @@ namespace BloodyStory
                 .WithDescription("Reloads Bloody Story config file")
                 .RequiresPrivilege(Privilege.root)
                 .HandleWith(ReloadConfigCommand);
-
-            harmony.PatchAll();
         }
 
         static private void BroadcastConfig()
@@ -124,257 +113,7 @@ namespace BloodyStory
         public override void StartClientSide(ICoreClientAPI api)
         {
             capi = api;
-
         }
-
-        private void OnPlayerJoined(IServerPlayer byPlayer)
-        {
-            EntityBehaviorHealth pHealth = byPlayer.Entity.GetBehavior<EntityBehaviorHealth>();
-
-            //pHealth._playerHealthRegenSpeed = 0; // this is probably ok
-
-            pHealth.onDamaged += ((float dmg, DamageSource dmgSrc) => HandleDamage(byPlayer, dmg, dmgSrc));
-        }
-
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(EntityBehaviorHunger), nameof(EntityBehaviorHunger.OnEntityReceiveSaturation))]
-        private static void HandleEating(EntityBehaviorHunger __instance, float saturation/*, EnumFoodCategory foodCat, float saturationLossDelay, float nutritionGainMultiplier*/)
-        {
-            IServerPlayer player = (IServerPlayer)((EntityPlayer)__instance.entity).Player;
-            if (player != null)
-            {
-                double regenBoostAdd = saturation / modConfig.regenBoostQuotient;
-                player.Entity.WatchedAttributes.SetDouble(regenAttr, player.Entity.WatchedAttributes.GetDouble(regenAttr) + regenBoostAdd);
-                player.SendMessage(GlobalConstants.DamageLogChatGroup, "Received ~" + Math.Round(regenBoostAdd, 1) + " HP of regen boost from food", EnumChatType.Notification); //TODO: localisation
-            }
-        }
-        private void OnPlayerRespawn(IServerPlayer byPlayer)
-        {
-            byPlayer.Entity.WatchedAttributes.SetDouble(bleedAttr, 0);
-            byPlayer.Entity.WatchedAttributes.SetDouble(regenAttr, 0);
-        }
-
-        private static float HandleDamage(IServerPlayer byPlayer, float damage, DamageSource dmgSource)
-        {
-            if (dmgSource.Source == EnumDamageSource.Revive) return damage;
-
-            SyncedTreeAttribute playerAttributes = byPlayer.Entity.WatchedAttributes;
-
-            if (dmgSource.Type != EnumDamageType.Heal)
-            {
-                playerAttributes.SetDouble(regenAttr, 0);
-            }
-
-            if (dmgSource.Source == EnumDamageSource.Void) return damage;
-
-            if (playerAttributes.GetBool("unconscious")) return damage;
-
-            switch (dmgSource.Type) // possible alternate implementation: dictionary, with dmg type as keys and functions as values?
-            {
-                case EnumDamageType.Heal: // healing items reduce bleed rate
-                    // TODO: add alternative healing method, to allow direct healing?
-                    damage *= modConfig.bandageMultiplier;
-                    damage *= Math.Max(0, byPlayer.Entity.Stats.GetBlended("healingeffectivness"));
-                    double bleedRate = playerAttributes.GetDouble(bleedAttr);
-                    bleedRate -= damage;
-                    if (bleedRate < 0) bleedRate = 0;
-                    playerAttributes.SetDouble(bleedAttr, bleedRate);
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Healed ~" + Math.Round(damage / modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
-                    ReceiveDamageReplacer(byPlayer, dmgSource, damage);
-                    damage = 0;
-                    break; 
-                case EnumDamageType.BluntAttack:
-                case EnumDamageType.SlashingAttack:
-                case EnumDamageType.PiercingAttack:
-                    playerAttributes.SetDouble(bleedAttr, playerAttributes.GetDouble(bleedAttr) + damage);
-                    RecordLastHit(byPlayer, dmgSource);
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Received ~" + Math.Round(damage/modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
-                    ReceiveDamageReplacer(byPlayer, dmgSource, damage);
-                    damage = 0;
-                    break;
-                case EnumDamageType.Poison: 
-                    playerAttributes.SetDouble(bleedAttr, playerAttributes.GetDouble(bleedAttr) + damage);
-                    RecordLastHit(byPlayer, dmgSource);
-                    ReceiveDamageReplacer(byPlayer, dmgSource, damage);
-                    damage = 0;
-                    break;
-                case EnumDamageType.Gravity: break;
-                case EnumDamageType.Fire:
-                    playerAttributes.SetDouble(bleedAttr, playerAttributes.GetDouble(bleedAttr) - (damage * modConfig.bleedCautMultiplier));
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Cauterised ~" + Math.Round(damage * modConfig.bleedCautMultiplier / modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
-                    break; // :]
-                case EnumDamageType.Suffocation: break;
-                case EnumDamageType.Hunger: break;
-                case EnumDamageType.Crushing: break;
-                case EnumDamageType.Frost: break;
-                case EnumDamageType.Electricity: break;
-                case EnumDamageType.Heat: break;
-                case EnumDamageType.Injury: break;
-                default: break;
-            }
-
-            return damage;
-        }
-
-        // Handles knockback, hurt animation, etc.
-        // Required as game will not do these if received damage is reduced to zero
-        // TODO: replace this with a more elegant solution, if one exists (transpile out the health change in onEntityReceiveDamage?)
-        public static void ReceiveDamageReplacer(IServerPlayer player, DamageSource dmgSource, float damage)
-        {
-            SyncedTreeAttribute playerAttributes = player.Entity.WatchedAttributes;
-
-            // from EntityBehaviorHealth.OnEntityReceiveDamage
-            if (player.Entity.Alive) 
-            {
-                player.Entity.OnHurt(dmgSource, damage);
-                if (damage > 1f) player.Entity.AnimManager.StartAnimation("hurt");
-                player.Entity.PlayEntitySound("hurt", null, true, 24f);
-            }
-
-            // from Entity.ReceiveDamage
-            if (dmgSource.Type != EnumDamageType.Heal && damage > 0f)
-            {
-                playerAttributes.SetInt("onHurtCounter", playerAttributes.GetInt("onHurtCounter") + 1);
-                playerAttributes.SetFloat("onHurt", damage);
-                if (damage > 0.05f)
-                {
-                    player.Entity.AnimManager.StartAnimation("hurt");
-                }
-
-                if (dmgSource.GetSourcePosition() != null)
-                {
-                    Vec3d dir = (player.Entity.SidedPos.XYZ - dmgSource.GetSourcePosition().Normalize());
-                    dir.Y = 0.699999988079071;
-                    float factor = dmgSource.KnockbackStrength * GameMath.Clamp((1f - player.Entity.Properties.KnockbackResistance) / 10f, 0f, 1f);
-                    playerAttributes.SetFloat("onHurtDir", (float)Math.Atan2(dir.X, dir.Z));
-                    playerAttributes.SetDouble("kbdirX", dir.X * (double)factor);
-                    playerAttributes.SetDouble("kbdirY", dir.Y * (double)factor);
-                    playerAttributes.SetDouble("kbdirZ", dir.Z * (double)factor);
-                } else
-                {
-                    playerAttributes.SetDouble("kbdirX", 0);
-                    playerAttributes.SetDouble("kbdirY", 0);
-                    playerAttributes.SetDouble("kbdirZ", 0);
-                    playerAttributes.SetFloat("onHurtDir", -999f);
-                }
-            }
-        }
-
-        private static void RecordLastHit(IServerPlayer byPlayer, DamageSource dmgSource)
-        {
-            SyncedTreeAttribute playerAttributes = byPlayer.Entity.WatchedAttributes;
-
-            lastHit[byPlayer] = dmgSource;
-        }
-
-        private void Tick(float dt)
-        {
-            dt *= sapi.World.Calendar.CalendarSpeedMul * sapi.World.Calendar.SpeedOfTime; // realtime -> game time
-            dt /= 30; // 24 hrs -> 48 mins
-            dt *= modConfig.timeDilation;
-
-            IServerPlayer[] players = (IServerPlayer[])sapi.World.AllOnlinePlayers;
-            foreach (IServerPlayer player in players)
-            {
-                if (player == null || player.ConnectionState != EnumClientState.Playing || !player.Entity.Alive || player.Entity.WatchedAttributes.GetBool("unconscious")) continue;
-
-                SyncedTreeAttribute playerAttributes = player.Entity.WatchedAttributes;
-                EntityBehaviorHealth pHealth = player.Entity.GetBehavior<EntityBehaviorHealth>();
-                EntityBehaviorHunger pHunger = player.Entity.GetBehavior<EntityBehaviorHunger>();
-                double bleedRate = playerAttributes.GetDouble(bleedAttr);
-                double bleedDmg = bleedRate / (player.Entity.Controls.Sneak ? modConfig.sneakMultiplier : 1);
-
-                double regenRate = (pHunger.Saturation > 0) ? modConfig.baseRegen + (modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth)) : 0;
-                if (bleedRate <= 0)
-                {
-                    if (player.Entity.MountedOn is not null and BlockEntityBed)
-                    {
-                        regenRate *= modConfig.regenBedMultiplier;
-                    };
-                    if (player.Entity.Controls.FloorSitting)
-                    {
-                        long sitStartTime = playerAttributes.GetLong(sitStartTimeAttr);
-                        if (sitStartTime == 0)
-                        {
-                            sitStartTime = player.Entity.World.ElapsedMilliseconds;
-                            playerAttributes.SetLong(sitStartTimeAttr, sitStartTime);
-                        }
-                        if (sitStartTime + modConfig.regenSitDelay < player.Entity.World.ElapsedMilliseconds)
-                        {
-                            regenRate *= modConfig.regenSitMultiplier;
-                        }
-                    } else playerAttributes.SetLong(sitStartTimeAttr, 0);
-                }
-                regenRate *= Interpolate(modConfig.minSatietyMultiplier, modConfig.maxSatietyMultiplier, pHunger.Saturation / pHunger.MaxSaturation);
-
-                double regenBoost = playerAttributes.GetDouble(regenAttr);
-
-                if (bleedRate > 0)
-                {
-                    //SpawnBloodParticles(player);
-
-                    double dt_peak = (bleedDmg - (regenRate * modConfig.bleedQuotient)) / modConfig.bleedHealRate;
-                    if (dt_peak < dt)
-                    {
-                        if (CalculateDmgCum(dt_peak, bleedDmg, regenRate, regenBoost) > pHealth.Health)
-                        {
-                            DamageSource dmgSource;
-                            player.Entity.Die(EnumDespawnReason.Death, lastHit.TryGetValue(player, out dmgSource) ? dmgSource : null);
-                            continue;
-                        }
-                    }
-                    bleedRate = Math.Max(bleedRate - modConfig.bleedHealRate * dt, 0);
-
-                    playerAttributes.SetDouble(bleedAttr, bleedRate);
-                    playerAttributes.SetLong(sitStartTimeAttr, 0);
-                }
-
-                float beforeHealth = pHealth.Health;
-                pHealth.Health = (float)Math.Min(pHealth.Health - CalculateDmgCum(dt, bleedDmg, regenRate, regenBoost), pHealth.MaxHealth); // TODO: handle edge case where bleeding would have stopped within dt given? (probably unnecessary)
-                if (pHealth.Health < 0)
-                {
-                    DamageSource dmgSource;
-                    player.Entity.Die(EnumDespawnReason.Death, lastHit.TryGetValue(player, out dmgSource) ? dmgSource : null);
-                    continue;
-                }
-
-                // Note: regen boost is also included in this now
-                // I dunno if that's a good thing or not
-                float hungerConsumption = 0;
-                if (beforeHealth < pHealth.MaxHealth || bleedRate > 0)
-                {
-                    if (beforeHealth == pHealth.MaxHealth && pHealth.Health == pHealth.MaxHealth)
-                    {
-                        // bleed rate > 0, but < regen, and is capping at max health
-                        // therefore, total health regen equals amount of bleed this tick
-                        hungerConsumption = (float)(CalculateDmgCum(dt, bleedDmg, 0) * modConfig.satietyConsumption);
-                    }
-                    else/* if (pHealth.Health == pHealth.MaxHealth)
-                    {
-                        // we managed to regen to full health at some point this tick
-                        // figure out when we hit full health, then how much regen happened in that time
-                        // (possibly ignore this edge case?)
-                        // ... yes, I am going to ignore this edge case because the formula is stupid long lmao
-                    } else //*/
-                    {
-                        // simplest situation: we have been doing health regen this whole tick, so just calculate total health regen
-                        hungerConsumption = (float)(modConfig.satietyConsumption * regenRate * dt);
-                        hungerConsumption += (float)Math.Min(dt * modConfig.regenBoostRate, regenBoost) * modConfig.satietyConsumption;
-                    }
-                }
-                pHunger.ConsumeSaturation(hungerConsumption);
-
-                if (regenBoost != 0)
-                {
-                    regenBoost -= modConfig.regenBoostRate * dt;
-                    if (regenBoost < 0) regenBoost = 0;
-                    playerAttributes.SetDouble(regenAttr, regenBoost);
-                }
-                
-
-            }
-        }
-
         private TextCommandResult BleedCommand(TextCommandCallingArgs args)
         {
             IServerPlayer player = args.Caller.Player as IServerPlayer;

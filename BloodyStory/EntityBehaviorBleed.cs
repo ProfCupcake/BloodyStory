@@ -2,15 +2,20 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 using static BloodyStory.BloodMath;
+using CombatOverhaul;
+using CombatOverhaul.DamageSystems;
+using System.Runtime.Loader;
 
 namespace BloodyStory
 {
@@ -40,6 +45,27 @@ namespace BloodyStory
         public override string PropertyName()
         {
             return "bleed";
+        }
+
+        public override void AfterInitialized(bool onFirstSpawn)
+        {
+            base.AfterInitialized(onFirstSpawn);
+
+            if (entity.World.Side == EnumAppSide.Server)
+            {
+                IServerPlayer player = ((EntityPlayer)entity).Player as IServerPlayer;
+
+                if (entity.Api.ModLoader.GetMod("combatoverhaul") != null)
+                {
+                    PlayerDamageModelBehavior pDamageModel = entity.GetBehavior<PlayerDamageModelBehavior>();
+                    pDamageModel.OnReceiveDamage += (ref float dmg, DamageSource dmgSrc, PlayerBodyPart bodyPart) => HandleCODamage(player, ref dmg, dmgSrc);
+                    // TODO: add EBHealth damage handler here - CombatOverhaul ignores damage types other than combat!
+                } else
+                {
+                    EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
+                    pHealth.onDamaged += (float dmg, DamageSource dmgSrc) => HandleDamage(player, dmg, dmgSrc);
+                }
+            }
         }
 
         public override void OnGameTick(float deltaTime)
@@ -74,7 +100,7 @@ namespace BloodyStory
 
             IServerPlayer serverPlayer = ((EntityPlayer)entity).Player as IServerPlayer;
 
-            if (serverPlayer.ConnectionState != EnumClientState.Playing) return;
+            if (serverPlayer == null || serverPlayer.ConnectionState != EnumClientState.Playing) return;
 
             if (modConfig == null) return;
 
@@ -165,9 +191,131 @@ namespace BloodyStory
             }
         }
 
+        private float HandleDamage(IServerPlayer byPlayer, float damage, DamageSource dmgSource)
+        {
+            if (dmgSource.Source == EnumDamageSource.Revive) return damage;
+
+            SyncedTreeAttribute playerAttributes = byPlayer.Entity.WatchedAttributes;
+
+            if (dmgSource.Type != EnumDamageType.Heal)
+            {
+                regenBoost = 0;
+            }
+
+            if (dmgSource.Source == EnumDamageSource.Void) return damage;
+
+            if (playerAttributes.GetBool("unconscious")) return damage;
+
+            switch (dmgSource.Type) // possible alternate implementation: dictionary, with dmg type as keys and functions as values?
+            {
+                case EnumDamageType.Heal: // healing items reduce bleed rate
+                    // TODO: add alternative healing method, to allow direct healing?
+                    damage *= modConfig.bandageMultiplier;
+                    damage *= Math.Max(0, byPlayer.Entity.Stats.GetBlended("healingeffectivness"));
+                    double bleedRate = bleedLevel;
+                    bleedRate -= damage;
+                    if (bleedRate < 0) bleedRate = 0;
+                    bleedLevel = bleedRate;
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Healed ~" + Math.Round(damage / modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
+                    ReceiveDamageReplacer(byPlayer, dmgSource, damage);
+                    damage = 0;
+                    break;
+                case EnumDamageType.BluntAttack:
+                case EnumDamageType.SlashingAttack:
+                case EnumDamageType.PiercingAttack:
+                    bleedLevel += damage;
+                    lastHit = dmgSource;
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Received ~" + Math.Round(damage / modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
+                    ReceiveDamageReplacer(byPlayer, dmgSource, damage);
+                    damage = 0;
+                    break;
+                case EnumDamageType.Poison:
+                    bleedLevel += damage;
+                    lastHit = dmgSource;
+                    ReceiveDamageReplacer(byPlayer, dmgSource, damage);
+                    damage = 0;
+                    break;
+                case EnumDamageType.Gravity: break;
+                case EnumDamageType.Fire:
+                    bleedLevel -= damage * modConfig.bleedCautMultiplier; 
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Cauterised ~" + Math.Round(damage * modConfig.bleedCautMultiplier / modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
+                    break; // :]
+                case EnumDamageType.Suffocation: break;
+                case EnumDamageType.Hunger: break;
+                case EnumDamageType.Crushing: break;
+                case EnumDamageType.Frost: break;
+                case EnumDamageType.Electricity: break;
+                case EnumDamageType.Heat: break;
+                case EnumDamageType.Injury: break;
+                default: break;
+            }
+
+            return damage;
+        }
+
+        private void HandleCODamage(IServerPlayer player, ref float dmg, DamageSource dmgSource)
+        {
+            dmg = HandleDamage(player, dmg, dmgSource);
+        }
+
+        // Handles knockback, hurt animation, etc.
+        // Required as game will not do these if received damage is reduced to zero
+        // TODO: replace this with a more elegant solution, if one exists (transpile out the health change in onEntityReceiveDamage?)
+        public static void ReceiveDamageReplacer(IServerPlayer player, DamageSource dmgSource, float damage)
+        {
+            SyncedTreeAttribute playerAttributes = player.Entity.WatchedAttributes;
+
+            // from EntityBehaviorHealth.OnEntityReceiveDamage
+            if (player.Entity.Alive)
+            {
+                player.Entity.OnHurt(dmgSource, damage);
+                if (damage > 1f) player.Entity.AnimManager.StartAnimation("hurt");
+                player.Entity.PlayEntitySound("hurt", null, true, 24f);
+            }
+
+            // from Entity.ReceiveDamage
+            if (dmgSource.Type != EnumDamageType.Heal && damage > 0f)
+            {
+                playerAttributes.SetInt("onHurtCounter", playerAttributes.GetInt("onHurtCounter") + 1);
+                playerAttributes.SetFloat("onHurt", damage);
+                if (damage > 0.05f)
+                {
+                    player.Entity.AnimManager.StartAnimation("hurt");
+                }
+
+                if (dmgSource.GetSourcePosition() != null)
+                {
+                    Vec3d dir = (player.Entity.SidedPos.XYZ - dmgSource.GetSourcePosition().Normalize());
+                    dir.Y = 0.699999988079071;
+                    float factor = dmgSource.KnockbackStrength * GameMath.Clamp((1f - player.Entity.Properties.KnockbackResistance) / 10f, 0f, 1f);
+                    playerAttributes.SetFloat("onHurtDir", (float)Math.Atan2(dir.X, dir.Z));
+                    playerAttributes.SetDouble("kbdirX", dir.X * (double)factor);
+                    playerAttributes.SetDouble("kbdirY", dir.Y * (double)factor);
+                    playerAttributes.SetDouble("kbdirZ", dir.Z * (double)factor);
+                }
+                else
+                {
+                    playerAttributes.SetDouble("kbdirX", 0);
+                    playerAttributes.SetDouble("kbdirY", 0);
+                    playerAttributes.SetDouble("kbdirZ", 0);
+                    playerAttributes.SetFloat("onHurtDir", -999f);
+                }
+            }
+        }
+
         public override void OnEntityReceiveSaturation(float saturation, EnumFoodCategory foodCat = EnumFoodCategory.Unknown, float saturationLossDelay = 10, float nutritionGainMultiplier = 1)
         {
-            
+            double regenBoostAdd = saturation / modConfig.regenBoostQuotient;
+            regenBoost += regenBoostAdd;
+            ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, "Received ~" + Math.Round(regenBoostAdd, 1) + " HP of regen boost from food", EnumChatType.Notification); //TODO: localisation
+        }
+
+        public override void OnEntitySpawn()
+        {
+            base.OnEntitySpawn();
+
+            regenBoost = 0;
+            bleedLevel = 0;
         }
 
         private static readonly AdvancedParticleProperties[] waterBloodParticleProperties = new AdvancedParticleProperties[]
