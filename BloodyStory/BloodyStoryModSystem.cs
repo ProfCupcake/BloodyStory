@@ -23,17 +23,6 @@ namespace BloodyStory
             }
         }
 
-        static readonly string bleedAttr = "BS_bleed";
-        static readonly string regenAttr = "BS_regen";
-
-        static readonly string sitStartTimeAttr = "BS_sitStartTime";
-
-        static readonly string netChannel = "BS_networkChannel";
-
-        static readonly int tickRate = 1000/15;
-
-        static Dictionary<IServerPlayer, DamageSource> lastHit = new();
-
         static ICoreAPI api;
         static ICoreClientAPI capi;
         static ICoreServerAPI sapi;
@@ -47,7 +36,7 @@ namespace BloodyStory
 
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
 
-            api.World.Config.SetFloat("playerHealthRegenSpeed", 0f);
+            api.World.Config.SetFloat("playerHealthRegenSpeed", 0f); // this is probably fine
         }
 
         public override void Dispose()
@@ -77,33 +66,20 @@ namespace BloodyStory
                 .RequiresPrivilege(Privilege.root)
                 .HandleWith(ReloadConfigCommand);
         }
-
-        static private void BroadcastConfig()
-        {
-            NetManager.BroadcastConfig();
-        }
         
         private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
         {
-            ReloadConfig();
+            ConfigManager.Reload();
 
             return TextCommandResult.Success();
         }
-
-        static private void ReloadConfig()
-        {
-            ConfigManager.Reload();
-
-            BroadcastConfig();
-        }
-
         private TextCommandResult MakeMeBleedCommand(TextCommandCallingArgs args)
         {
             IServerPlayer player = args.Caller.Player as IServerPlayer;
 
             double amount = (double)args[0];
 
-            player.Entity.WatchedAttributes.SetDouble(bleedAttr, player.Entity.WatchedAttributes.GetDouble(bleedAttr) + amount);
+            player.Entity.GetBehavior<EntityBehaviorBleed>().bleedLevel += amount;
 
             player.SendMessage(GlobalConstants.GeneralChatGroup, "Added " + amount + " bleed", EnumChatType.Notification);
 
@@ -117,45 +93,15 @@ namespace BloodyStory
         private TextCommandResult BleedCommand(TextCommandCallingArgs args)
         {
             IServerPlayer player = args.Caller.Player as IServerPlayer;
-            SyncedTreeAttribute playerAttributes = player.Entity.WatchedAttributes;
+            EntityBehaviorBleed bleedEB = player.Entity.GetBehavior<EntityBehaviorBleed>();
             
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed level: "+playerAttributes.GetDouble(bleedAttr), EnumChatType.Notification);
+            player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed level: "+bleedEB.bleedLevel, EnumChatType.Notification);
 
-            double bleedRate = playerAttributes.GetDouble(bleedAttr);
-            bleedRate /= player.Entity.Controls.Sneak ? modConfig.bleedQuotient * modConfig.sneakMultiplier : modConfig.bleedQuotient;
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Current bleed rate: "+bleedRate+" HP/s", EnumChatType.Notification);
-
-            EntityBehaviorHealth pHealth = player.Entity.GetBehavior<EntityBehaviorHealth>();
-            EntityBehaviorHunger pHunger = player.Entity.GetBehavior<EntityBehaviorHunger>();
-            // TODO: separate regen/bleed rate calculations into methods for deduplication?
-            double regenRate = 0;
-            if (pHunger.Saturation > 0)
-            {
-                regenRate = modConfig.baseRegen + modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth);
-                if (bleedRate <= 0)
-                {
-                    regenRate *= player.Entity.MountedOn is not null and BlockEntityBed ? modConfig.regenBedMultiplier : 1;
-                    if (player.Entity.Controls.FloorSitting)
-                    {
-                        long sitStartTime = playerAttributes.GetLong(sitStartTimeAttr);
-                        if (sitStartTime + modConfig.regenSitDelay < player.Entity.World.ElapsedMilliseconds)
-                        {
-                            regenRate *= modConfig.regenSitMultiplier;
-                        }
-                    }
-                }
-
-                regenRate *= Interpolate(modConfig.minSatietyMultiplier, modConfig.maxSatietyMultiplier, pHunger.Saturation / pHunger.MaxSaturation);
-            }
-
-            double regenBoost = playerAttributes.GetDouble(regenAttr);
-            if (regenBoost > 0)
-            {
-                regenRate += modConfig.regenBoostRate;
-            }
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Current regen rate: " + regenRate + " HP/s", EnumChatType.Notification);
+            player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed rate: " + bleedEB.GetBleedRate(true) + " HP/s", EnumChatType.Notification);
             
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Remaining regen boost: " + regenBoost + " HP", EnumChatType.Notification);
+            player.SendMessage(GlobalConstants.GeneralChatGroup, "Current regen rate: " + bleedEB.GetRegenRate(true) + " HP/s", EnumChatType.Notification);
+            
+            player.SendMessage(GlobalConstants.GeneralChatGroup, "Remaining regen boost: " + bleedEB.regenBoost + " HP", EnumChatType.Notification);
 
             return TextCommandResult.Success();
         }

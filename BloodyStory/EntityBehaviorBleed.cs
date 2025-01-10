@@ -21,24 +21,24 @@ namespace BloodyStory
 {
     internal class EntityBehaviorBleed : EntityBehavior
     {
-        BloodyStoryModConfig modConfig => ConfigManager.modConfig;
+        static BloodyStoryModConfig modConfig => ConfigManager.modConfig;
 
         DamageSource lastHit;
 
-        double bleedLevel
+        public double bleedLevel
         {
             get => entity.WatchedAttributes.GetDouble("BS_bleed");
             set => entity.WatchedAttributes.SetDouble("BS_bleed", value);
         }
-        double regenBoost
+        public double regenBoost
         {
             get => entity.WatchedAttributes.GetDouble("BS_regen");
             set => entity.WatchedAttributes.SetDouble("BS_regen", value);
         }
 
-        long SitStartTime;
+        private long SitStartTime;
 
-        double t;
+        private double t;
 
         public EntityBehaviorBleed(Entity entity) : base(entity) {}
 
@@ -59,7 +59,7 @@ namespace BloodyStory
                 if (entity.Api.ModLoader.GetMod("combatoverhaul") != null)
                 {
                     PlayerDamageModelBehavior pDamageModel = entity.GetBehavior<PlayerDamageModelBehavior>();
-                    pDamageModel.OnReceiveDamage += (ref float dmg, DamageSource dmgSrc, PlayerBodyPart bodyPart) => HandleCODamage(player, ref dmg, dmgSrc);
+                    pDamageModel.OnReceiveDamage += (ref float dmg, DamageSource dmgSrc, PlayerBodyPart bodyPart) => { dmg = HandleDamage(player, dmg, dmgSrc); };
                     pHealth.onDamaged += (float dmg, DamageSource dmgSrc) =>
                     {
                         if (dmgSrc.Type == EnumDamageType.BluntAttack
@@ -104,44 +104,22 @@ namespace BloodyStory
         {
             if (entity == null || !entity.Alive || entity.WatchedAttributes.GetBool("unconscious")) return;
 
-            IServerPlayer serverPlayer = ((EntityPlayer)entity).Player as IServerPlayer;
-
-            if (serverPlayer == null || serverPlayer.ConnectionState != EnumClientState.Playing) return;
+            if (((EntityPlayer)entity).Player is not IServerPlayer serverPlayer || serverPlayer.ConnectionState != EnumClientState.Playing) return;
 
             if (modConfig == null) return;
 
-            dt *= entity.Api.World.Calendar.CalendarSpeedMul * entity.Api.World.Calendar.SpeedOfTime; // realtime -> game time
+            dt *= entity.World.Calendar.CalendarSpeedMul * entity.World.Calendar.SpeedOfTime; // realtime -> game time
             dt /= 30; // 24 hrs -> 48 mins
             dt *= modConfig.timeDilation;
 
             EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
             EntityBehaviorHunger pHunger = entity.GetBehavior<EntityBehaviorHunger>();
-            double bleedRate = bleedLevel;
-            double bleedDmg = bleedRate / (serverPlayer.Entity.Controls.Sneak ? modConfig.sneakMultiplier : 1);
 
-            double regenRate = (pHunger.Saturation > 0) ? modConfig.baseRegen + (modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth)) : 0;
-            if (bleedRate <= 0)
-            {
-                if (serverPlayer.Entity.MountedOn is not null and BlockEntityBed)
-                {
-                    regenRate *= modConfig.regenBedMultiplier;
-                };
-                if (serverPlayer.Entity.Controls.FloorSitting)
-                {
-                    if (SitStartTime == 0)
-                    {
-                        SitStartTime = entity.World.ElapsedMilliseconds;
-                    }
-                    if (SitStartTime + modConfig.regenSitDelay < entity.World.ElapsedMilliseconds)
-                    {
-                        regenRate *= modConfig.regenSitMultiplier;
-                    }
-                }
-                else SitStartTime = 0;
-            }
-            regenRate *= Interpolate(modConfig.minSatietyMultiplier, modConfig.maxSatietyMultiplier, pHunger.Saturation / pHunger.MaxSaturation);
+            double bleedDmg = GetBleedRate(true) * modConfig.bleedQuotient; // TODO: maybe fix this hacky "solution"
 
-            if (bleedRate > 0)
+            double regenRate = GetRegenRate(false);
+
+            if (bleedLevel > 0)
             {
                 double dt_peak = (bleedDmg - (regenRate * modConfig.bleedQuotient)) / modConfig.bleedHealRate;
                 if (dt_peak < dt)
@@ -151,9 +129,7 @@ namespace BloodyStory
                         entity.Die(EnumDespawnReason.Death, lastHit);
                     }
                 }
-                bleedRate = Math.Max(bleedRate - modConfig.bleedHealRate * dt, 0);
-
-                bleedLevel = bleedRate;
+                bleedLevel = Math.Max(bleedLevel - modConfig.bleedHealRate * dt, 0);
                 SitStartTime = 0;
             }
 
@@ -167,7 +143,7 @@ namespace BloodyStory
             // Note: regen boost is also included in this now
             // I dunno if that's a good thing or not
             float hungerConsumption = 0;
-            if (beforeHealth < pHealth.MaxHealth || bleedRate > 0)
+            if (beforeHealth < pHealth.MaxHealth || bleedLevel > 0)
             {
                 if (beforeHealth == pHealth.MaxHealth && pHealth.Health == pHealth.MaxHealth)
                 {
@@ -195,6 +171,46 @@ namespace BloodyStory
                 regenBoost -= modConfig.regenBoostRate * dt;
                 if (regenBoost < 0) regenBoost = 0;
             }
+        }
+        
+        public double GetBleedRate(bool includeSneak = true)
+        {
+            double quot = modConfig.bleedQuotient;
+            if (includeSneak && ((EntityPlayer)entity).Controls.Sneak) quot *= modConfig.sneakMultiplier;
+            return bleedLevel / quot;
+        }
+
+        public double GetRegenRate(bool includeBoost = false)
+        {
+            EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
+            EntityBehaviorHunger pHunger = entity.GetBehavior<EntityBehaviorHunger>();
+            
+            double bleedRate = bleedLevel;
+            double regenRate = (pHunger.Saturation > 0) ? modConfig.baseRegen + (modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth)) : 0;
+            if (bleedRate <= 0)
+            {
+                if (((EntityPlayer)entity).MountedOn is not null and BlockEntityBed)
+                {
+                    regenRate *= modConfig.regenBedMultiplier;
+                };
+                if (((EntityPlayer)entity).Controls.FloorSitting)
+                {
+                    if (SitStartTime == 0)
+                    {
+                        SitStartTime = entity.World.ElapsedMilliseconds;
+                    }
+                    if (SitStartTime + modConfig.regenSitDelay < entity.World.ElapsedMilliseconds)
+                    {
+                        regenRate *= modConfig.regenSitMultiplier;
+                    }
+                }
+                else SitStartTime = 0;
+            }
+            regenRate *= Interpolate(modConfig.minSatietyMultiplier, modConfig.maxSatietyMultiplier, pHunger.Saturation / pHunger.MaxSaturation);
+
+            if (includeBoost && regenBoost > 0) regenRate += modConfig.regenBoostRate;
+
+            return regenRate;
         }
 
         private float HandleDamage(IServerPlayer byPlayer, float damage, DamageSource dmgSource)
@@ -257,11 +273,6 @@ namespace BloodyStory
             }
 
             return damage;
-        }
-
-        private void HandleCODamage(IServerPlayer player, ref float dmg, DamageSource dmgSource)
-        {
-            dmg = HandleDamage(player, dmg, dmgSource);
         }
 
         // Handles knockback, hurt animation, etc.
