@@ -65,8 +65,18 @@ namespace BloodyStory
                 .WithDescription("Reloads Bloody Story config file")
                 .RequiresPrivilege(Privilege.root)
                 .HandleWith(ReloadConfigCommand);
+
+            sapi.Event.PlayerRespawn += OnPlayerRespawn;
         }
-        
+
+        private void OnPlayerRespawn(IServerPlayer byPlayer)
+        {
+            EntityBehaviorBleed bleedEB = byPlayer.Entity.GetBehavior<EntityBehaviorBleed>();
+
+            bleedEB.bleedLevel = 0;
+            bleedEB.regenBoost = 0;
+        }
+
         private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
         {
             ConfigManager.Reload();
@@ -95,7 +105,7 @@ namespace BloodyStory
             IServerPlayer player = args.Caller.Player as IServerPlayer;
             EntityBehaviorBleed bleedEB = player.Entity.GetBehavior<EntityBehaviorBleed>();
             
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed level: "+bleedEB.bleedLevel, EnumChatType.Notification);
+            player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed level: " + bleedEB.bleedLevel, EnumChatType.Notification);
 
             player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed rate: " + bleedEB.GetBleedRate(true) + " HP/s", EnumChatType.Notification);
             

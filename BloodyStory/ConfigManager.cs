@@ -80,6 +80,7 @@ namespace BloodyStory
                     NetManager.BroadcastConfig();
                     break;
                 case (EnumAppSide.Client):
+                    _modConfig = new BloodyStoryModConfig();
                     NetManager.RequestConfig();
                     break;
             }
