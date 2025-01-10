@@ -66,7 +66,7 @@ namespace BloodyStory
                 .RequiresPrivilege(Privilege.root)
                 .HandleWith(ReloadConfigCommand);
         }
-        
+
         private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
         {
             ConfigManager.Reload();

@@ -326,13 +326,6 @@ namespace BloodyStory
             regenBoost += regenBoostAdd;
             ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, "Received ~" + Math.Round(regenBoostAdd, 1) + " HP of regen boost from food", EnumChatType.Notification); //TODO: localisation
         }
-        public override void OnEntityRevive()
-        {
-            base.OnEntityRevive();
-
-            regenBoost = 0;
-            bleedLevel = 0;
-        }
 
         private static readonly AdvancedParticleProperties[] waterBloodParticleProperties = new AdvancedParticleProperties[]
         {
@@ -388,8 +381,6 @@ namespace BloodyStory
 
         void SpawnBloodParticles()
         {
-            if (modConfig == null) return;
-
             EntityPlayer playerEntity = entity as EntityPlayer;
 
             double bleedAmount = bleedLevel;
