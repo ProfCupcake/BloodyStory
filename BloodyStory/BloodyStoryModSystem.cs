@@ -95,7 +95,7 @@ namespace BloodyStory
             IServerPlayer player = args.Caller.Player as IServerPlayer;
             EntityBehaviorBleed bleedEB = player.Entity.GetBehavior<EntityBehaviorBleed>();
             
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed level: "+bleedEB.bleedLevel, EnumChatType.Notification);
+            player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed level: " + bleedEB.bleedLevel, EnumChatType.Notification);
 
             player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed rate: " + bleedEB.GetBleedRate(true) + " HP/s", EnumChatType.Notification);
             
