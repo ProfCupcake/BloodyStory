@@ -54,15 +54,21 @@ namespace BloodyStory
             if (entity.World.Side == EnumAppSide.Server)
             {
                 IServerPlayer player = ((EntityPlayer)entity).Player as IServerPlayer;
+                EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
 
                 if (entity.Api.ModLoader.GetMod("combatoverhaul") != null)
                 {
                     PlayerDamageModelBehavior pDamageModel = entity.GetBehavior<PlayerDamageModelBehavior>();
                     pDamageModel.OnReceiveDamage += (ref float dmg, DamageSource dmgSrc, PlayerBodyPart bodyPart) => HandleCODamage(player, ref dmg, dmgSrc);
-                    // TODO: add EBHealth damage handler here - CombatOverhaul ignores damage types other than combat!
+                    pHealth.onDamaged += (float dmg, DamageSource dmgSrc) =>
+                    {
+                        if (dmgSrc.Type == EnumDamageType.BluntAttack
+                            || dmgSrc.Type == EnumDamageType.SlashingAttack
+                            || dmgSrc.Type == EnumDamageType.PiercingAttack) return dmg;
+                        return HandleDamage(player, dmg, dmgSrc); // bit jank, might change later, idk
+                    };
                 } else
                 {
-                    EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
                     pHealth.onDamaged += (float dmg, DamageSource dmgSrc) => HandleDamage(player, dmg, dmgSrc);
                 }
             }
