@@ -1,0 +1,4 @@
+- Slight improvement to blood particle vertical positioning
+- Significant refactor/cleanup, including moving most processing to an entity behaviour (as it should've been in the first place tbh)
+- new config option to customise delay between blood particle spawns (zero/disabled by default)
+- Fixed issue with Combat Overhaul compatibility
