@@ -1,3 +1,5 @@
+- (hopefully) improved networking to better guarantee client config sync
+
 TODO THIS UPDATE: 
 - handbook entry
 - localisation

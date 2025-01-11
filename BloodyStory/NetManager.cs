@@ -1,11 +1,4 @@
 ﻿using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Server;
@@ -14,25 +7,25 @@ namespace BloodyStory
 {
     internal class NetManager
     {
-        private static INetworkAPI napi;
+        private static ICoreAPI api;
         private static IServerNetworkAPI snapi;
         private static IClientNetworkAPI cnapi;
         private static readonly string netChannel = "bloodystory";
         public static void Initialise(ICoreAPI api)
         {
-            napi = api.Network;
-            napi.RegisterChannel(netChannel)
+            NetManager.api = api;
+            api.Network.RegisterChannel(netChannel)
                 .RegisterMessageType<BloodyStoryModConfig>()
                 .RegisterMessageType<NetMessage_Request>();
-            
+
             switch (api.Side)
             {
                 case (EnumAppSide.Server):
-                    snapi = (IServerNetworkAPI)napi;
+                    snapi = (IServerNetworkAPI)api.Network;
                     snapi.GetChannel(netChannel).SetMessageHandler<NetMessage_Request>(SendConfig);
                     break;
                 case (EnumAppSide.Client):
-                    cnapi = (IClientNetworkAPI)napi;
+                    cnapi = (IClientNetworkAPI)api.Network;
                     cnapi.GetChannel(netChannel).SetMessageHandler<BloodyStoryModConfig>(ReceiveConfig);
                     break;
             }
@@ -40,8 +33,20 @@ namespace BloodyStory
         internal static void RequestConfig()
         {
             IClientNetworkChannel channel = cnapi.GetChannel(netChannel);
-            if (channel.Connected) channel.SendPacket(new NetMessage_Request());
+            if (channel.Connected)
+            {
+                channel.SendPacket(new NetMessage_Request());
+            }
+            else
+            {
+                api.Event.RegisterCallback(RequestConfig, 100); 
+            }
         }
+        private static void RequestConfig(float obj)
+        {
+            RequestConfig();
+        }
+
         private static void SendConfig(IServerPlayer fromPlayer, NetMessage_Request packet)
         {
             snapi.GetChannel(netChannel).SendPacket(ConfigManager.modConfig, fromPlayer);
@@ -49,6 +54,8 @@ namespace BloodyStory
         private static void ReceiveConfig(BloodyStoryModConfig packet)
         {
             ConfigManager.modConfig = packet;
+            ConfigManager.receivedConfig = true;
+            api.Logger.Event("[bloodystory] Received config from server");
         }
         internal static void BroadcastConfig()
         {
@@ -57,5 +64,5 @@ namespace BloodyStory
     }
 
     [ProtoContract]
-    public class NetMessage_Request {}
+    public class NetMessage_Request { }
 }
