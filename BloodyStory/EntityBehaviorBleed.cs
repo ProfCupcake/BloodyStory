@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CombatOverhaul.DamageSystems;
+using System;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
@@ -13,15 +8,14 @@ using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 using static BloodyStory.BloodMath;
-using CombatOverhaul;
-using CombatOverhaul.DamageSystems;
-using System.Runtime.Loader;
 
 namespace BloodyStory
 {
     internal class EntityBehaviorBleed : EntityBehavior
     {
         static BloodyStoryModConfig modConfig => ConfigManager.modConfig;
+
+        public event OnBleedoutDelegate OnBleedout;
 
         DamageSource lastHit;
 
@@ -40,7 +34,7 @@ namespace BloodyStory
 
         private double t;
 
-        public EntityBehaviorBleed(Entity entity) : base(entity) {}
+        public EntityBehaviorBleed(Entity entity) : base(entity) { }
 
         public override string PropertyName()
         {
@@ -67,7 +61,8 @@ namespace BloodyStory
                             || dmgSrc.Type == EnumDamageType.PiercingAttack) return dmg;
                         return HandleDamage(player, dmg, dmgSrc); // bit jank, might change later, idk
                     };
-                } else
+                }
+                else
                 {
                     pHealth.onDamaged += (float dmg, DamageSource dmgSrc) => HandleDamage(player, dmg, dmgSrc);
                 }
@@ -126,7 +121,7 @@ namespace BloodyStory
                 {
                     if (CalculateDmgCum(dt_peak, bleedDmg, regenRate, regenBoost) > pHealth.Health)
                     {
-                        entity.Die(EnumDespawnReason.Death, lastHit);
+                        BleedOut();
                     }
                 }
                 bleedLevel = Math.Max(bleedLevel - modConfig.bleedHealRate * dt, 0);
@@ -137,7 +132,7 @@ namespace BloodyStory
             pHealth.Health = (float)Math.Min(pHealth.Health - CalculateDmgCum(dt, bleedDmg, regenRate, regenBoost), pHealth.MaxHealth); // TODO: handle edge case where bleeding would have stopped within dt given? (probably unnecessary)
             if (pHealth.Health < 0)
             {
-                entity.Die(EnumDespawnReason.Death, lastHit);
+                BleedOut();
             }
 
             // Note: regen boost is also included in this now
@@ -172,7 +167,20 @@ namespace BloodyStory
                 if (regenBoost < 0) regenBoost = 0;
             }
         }
-        
+
+        private void BleedOut()
+        {
+            bool shouldDie = true;
+            if (OnBleedout != null)
+            {
+                foreach (OnBleedoutDelegate d in OnBleedout.GetInvocationList())
+                {
+                    d(out shouldDie, lastHit);
+                }
+            }
+            if (shouldDie) entity.Die(EnumDespawnReason.Death, lastHit);
+        }
+
         public double GetBleedRate(bool includeSneak = true)
         {
             double quot = modConfig.bleedQuotient;
@@ -184,7 +192,7 @@ namespace BloodyStory
         {
             EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
             EntityBehaviorHunger pHunger = entity.GetBehavior<EntityBehaviorHunger>();
-            
+
             double bleedRate = bleedLevel;
             double regenRate = (pHunger.Saturation > 0) ? modConfig.baseRegen + (modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth)) : 0;
             if (bleedRate <= 0)
@@ -259,7 +267,7 @@ namespace BloodyStory
                     break;
                 case EnumDamageType.Gravity: break;
                 case EnumDamageType.Fire:
-                    bleedLevel -= damage * modConfig.bleedCautMultiplier; 
+                    bleedLevel -= damage * modConfig.bleedCautMultiplier;
                     byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Cauterised ~" + Math.Round(damage * modConfig.bleedCautMultiplier / modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
                     break; // :]
                 case EnumDamageType.Suffocation: break;
