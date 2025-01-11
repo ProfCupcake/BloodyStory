@@ -1,8 +1,3 @@
-Mostly backend-ey mod hooks this update, intended for a certain other player death related mod ;]
-- Added an event on bleedout; other mods can subscribe to this even to prevent the player from dying
-- Added options for toggling the spawning of blood particles and the processing of bleeding
-- Added commands to toggle all 3 of the above, intended for testing but I guess server admins might have use for them?
-
 TODO THIS UPDATE: 
 - handbook entry
-/ proper Unconscious compat and/or general hooks for other mods
+- localisation

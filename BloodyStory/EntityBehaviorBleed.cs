@@ -1,5 +1,4 @@
-﻿using CombatOverhaul.DamageSystems;
-using System;
+﻿using System;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
@@ -62,8 +61,7 @@ namespace BloodyStory
 
                 if (entity.Api.ModLoader.GetMod("combatoverhaul") != null)
                 {
-                    PlayerDamageModelBehavior pDamageModel = entity.GetBehavior<PlayerDamageModelBehavior>();
-                    pDamageModel.OnReceiveDamage += (ref float dmg, DamageSource dmgSrc, PlayerBodyPart bodyPart) => { dmg = HandleDamage(player, dmg, dmgSrc); };
+                    COCompat.AddCODamageEH(player, this);
                     pHealth.onDamaged += (float dmg, DamageSource dmgSrc) =>
                     {
                         if (dmgSrc.Type == EnumDamageType.BluntAttack
@@ -234,7 +232,7 @@ namespace BloodyStory
             return regenRate;
         }
 
-        private float HandleDamage(IServerPlayer byPlayer, float damage, DamageSource dmgSource)
+        internal float HandleDamage(IServerPlayer byPlayer, float damage, DamageSource dmgSource)
         {
             if (dmgSource.Source == EnumDamageSource.Revive) return damage;
 
