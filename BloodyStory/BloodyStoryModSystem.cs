@@ -155,6 +155,8 @@ namespace BloodyStory
 
             bleedEB.bleedLevel = 0;
             bleedEB.regenBoost = 0;
+            bleedEB.pauseBleedParticles = false;
+            bleedEB.pauseBleedProcess = false;
         }
 
         private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
