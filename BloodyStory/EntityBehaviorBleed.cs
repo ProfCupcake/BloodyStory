@@ -11,7 +11,7 @@ using static BloodyStory.BloodMath;
 
 namespace BloodyStory
 {
-    internal class EntityBehaviorBleed : EntityBehavior
+    public class EntityBehaviorBleed : EntityBehavior
     {
         static BloodyStoryModConfig modConfig => ConfigManager.modConfig;
 
