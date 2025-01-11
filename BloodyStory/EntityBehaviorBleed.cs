@@ -29,6 +29,16 @@ namespace BloodyStory
             get => entity.WatchedAttributes.GetDouble("BS_regen");
             set => entity.WatchedAttributes.SetDouble("BS_regen", value);
         }
+        public bool pauseBleedProcess
+        {
+            get => entity.WatchedAttributes.GetBool("BS_pause");
+            set => entity.WatchedAttributes.SetBool("BS_pause", value);
+        }
+        public bool pauseBleedParticles
+        {
+            get => entity.WatchedAttributes.GetBool("BS_pauseParticles");
+            set => entity.WatchedAttributes.SetBool("BS_pauseParticles", value);
+        }
 
         private long SitStartTime;
 
@@ -86,6 +96,7 @@ namespace BloodyStory
         {
             if (bleedLevel > 0f)
             {
+                if (pauseBleedParticles) return;
                 if (t > modConfig.bloodParticleDelay)
                 {
                     SpawnBloodParticles();
@@ -97,7 +108,7 @@ namespace BloodyStory
 
         private void ServerTick(float dt)
         {
-            if (entity == null || !entity.Alive || entity.WatchedAttributes.GetBool("unconscious")) return;
+            if (entity == null || !entity.Alive || pauseBleedProcess || entity.WatchedAttributes.GetBool("unconscious")) return;
 
             if (((EntityPlayer)entity).Player is not IServerPlayer serverPlayer || serverPlayer.ConnectionState != EnumClientState.Playing) return;
 
@@ -170,15 +181,17 @@ namespace BloodyStory
 
         private void BleedOut()
         {
-            bool shouldDie = true;
             if (OnBleedout != null)
             {
                 foreach (OnBleedoutDelegate d in OnBleedout.GetInvocationList())
                 {
+                    bool shouldDie = true;
                     d(out shouldDie, lastHit);
+                    if (!shouldDie) return;
                 }
             }
-            if (shouldDie) entity.Die(EnumDespawnReason.Death, lastHit);
+
+            entity.Die(EnumDespawnReason.Death, lastHit);
         }
 
         public double GetBleedRate(bool includeSneak = true)
