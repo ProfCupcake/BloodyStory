@@ -1,3 +1,5 @@
+- big ol' rewrite and cleanup, which also should hopefully fix config issues
+
 TODO THIS UPDATE: 
 - handbook entry
 - localisation

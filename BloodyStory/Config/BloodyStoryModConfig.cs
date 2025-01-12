@@ -1,14 +1,6 @@
 ﻿using ProtoBuf;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using Vintagestory.API.Client;
-using Vintagestory.API.Common;
 
-namespace BloodyStory
+namespace BloodyStory.Config
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     public class BloodyStoryModConfig // TODO: proper config documentation
@@ -41,49 +33,5 @@ namespace BloodyStory
         public float satietyConsumption = 1f; // hunger saturation consumed per point of hp restored (sans bonus)
 
         public float timeDilation = 1.0f; // to adjust simulated second speed, for if game speed is changed
-    }
-    internal class ConfigManager
-    {
-        private static readonly string configFilename = "bloodystory.json";
-
-        private static ICoreAPI api;
-        private static BloodyStoryModConfig _modConfig;
-        public static BloodyStoryModConfig modConfig
-        {
-            get
-            {
-                if (_modConfig == null) Reload();
-                return _modConfig;
-            }
-            set
-            {
-                _modConfig = value;
-            }
-        }
-
-        public static void Initialise(ICoreAPI api)
-        {
-            ConfigManager.api = api;
-        }
-
-        internal static void Reload()
-        {
-            switch (api.Side)
-            {
-                case (EnumAppSide.Server):
-                    _modConfig = api.LoadModConfig<BloodyStoryModConfig>(configFilename);
-                    if (_modConfig == null)
-                    {
-                        _modConfig = new BloodyStoryModConfig();
-                        api.StoreModConfig(_modConfig, configFilename);
-                    }
-                    NetManager.BroadcastConfig();
-                    break;
-                case (EnumAppSide.Client):
-                    _modConfig = new BloodyStoryModConfig();
-                    NetManager.RequestConfig();
-                    break;
-            }
-        }
     }
 }

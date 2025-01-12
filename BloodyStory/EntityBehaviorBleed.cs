@@ -1,4 +1,6 @@
-﻿using System;
+﻿using BloodyStory.Config;
+using BloodyStory.Lib;
+using System;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
@@ -6,13 +8,13 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
-using static BloodyStory.BloodMath;
+using static BloodyStory.Lib.BloodMath;
 
 namespace BloodyStory
 {
     public class EntityBehaviorBleed : EntityBehavior
     {
-        static BloodyStoryModConfig modConfig => ConfigManager.modConfig;
+        static BloodyStoryModConfig modConfig => BloodyStoryModSystem.Config.modConfig;
 
         public event OnBleedoutDelegate OnBleedout;
 
@@ -62,7 +64,7 @@ namespace BloodyStory
                 if (entity.Api.ModLoader.GetMod("combatoverhaul") != null)
                 {
                     COCompat.AddCODamageEH(player, this);
-                    pHealth.onDamaged += (float dmg, DamageSource dmgSrc) =>
+                    pHealth.onDamaged += (dmg, dmgSrc) =>
                     {
                         if (dmgSrc.Type == EnumDamageType.BluntAttack
                             || dmgSrc.Type == EnumDamageType.SlashingAttack
@@ -72,7 +74,7 @@ namespace BloodyStory
                 }
                 else
                 {
-                    pHealth.onDamaged += (float dmg, DamageSource dmgSrc) => HandleDamage(player, dmg, dmgSrc);
+                    pHealth.onDamaged += (dmg, dmgSrc) => HandleDamage(player, dmg, dmgSrc);
                 }
             }
         }
@@ -125,7 +127,7 @@ namespace BloodyStory
 
             if (bleedLevel > 0)
             {
-                double dt_peak = (bleedDmg - (regenRate * modConfig.bleedQuotient)) / modConfig.bleedHealRate;
+                double dt_peak = (bleedDmg - regenRate * modConfig.bleedQuotient) / modConfig.bleedHealRate;
                 if (dt_peak < dt)
                 {
                     if (CalculateDmgCum(dt_peak, bleedDmg, regenRate, regenBoost) > pHealth.Health)
@@ -205,7 +207,7 @@ namespace BloodyStory
             EntityBehaviorHunger pHunger = entity.GetBehavior<EntityBehaviorHunger>();
 
             double bleedRate = bleedLevel;
-            double regenRate = (pHunger.Saturation > 0) ? modConfig.baseRegen + (modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth)) : 0;
+            double regenRate = pHunger.Saturation > 0 ? modConfig.baseRegen + modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth) : 0;
             if (bleedRate <= 0)
             {
                 if (((EntityPlayer)entity).MountedOn is not null and BlockEntityBed)
@@ -321,7 +323,7 @@ namespace BloodyStory
 
                 if (dmgSource.GetSourcePosition() != null)
                 {
-                    Vec3d dir = (player.Entity.SidedPos.XYZ - dmgSource.GetSourcePosition().Normalize());
+                    Vec3d dir = player.Entity.SidedPos.XYZ - dmgSource.GetSourcePosition().Normalize();
                     dir.Y = 0.699999988079071;
                     float factor = dmgSource.KnockbackStrength * GameMath.Clamp((1f - player.Entity.Properties.KnockbackResistance) / 10f, 0f, 1f);
                     playerAttributes.SetFloat("onHurtDir", (float)Math.Atan2(dir.X, dir.Z));
@@ -403,19 +405,19 @@ namespace BloodyStory
             EntityPlayer playerEntity = entity as EntityPlayer;
 
             double bleedAmount = bleedLevel;
-            bleedAmount /= (playerEntity.Controls.Sneak ? modConfig.sneakMultiplier : 1);
+            bleedAmount /= playerEntity.Controls.Sneak ? modConfig.sneakMultiplier : 1;
             bleedAmount *= modConfig.bloodParticleMultiplier;
             double bloodHeight = playerEntity.LocalEyePos.Y / 2;
 
             float playerYaw = playerEntity.Pos.Yaw;
             playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
 
-            float posOffset_x = (float)(0.2f * Math.Cos(playerYaw + (Math.PI / 2)));
-            float posOffset_y = (float)(-0.2f * Math.Sin(playerYaw + (Math.PI / 2)));
+            float posOffset_x = (float)(0.2f * Math.Cos(playerYaw + Math.PI / 2));
+            float posOffset_y = (float)(-0.2f * Math.Sin(playerYaw + Math.PI / 2));
 
             bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
 
-            bloodParticleProperties.basePos = playerEntity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + (Math.PI / 2)), bloodHeight, 0.2f * Math.Sin(playerYaw + (Math.PI / 2)));
+            bloodParticleProperties.basePos = playerEntity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + Math.PI / 2), bloodHeight, 0.2f * Math.Sin(playerYaw + Math.PI / 2));
             bloodParticleProperties.PosOffset = new NatFloat[]
             {
                 NatFloat.createUniform(posOffset_x, posOffset_x),
@@ -425,9 +427,9 @@ namespace BloodyStory
 
             bloodParticleProperties.Velocity = new NatFloat[]
             {
-                NatFloat.createUniform((float)((1.05f * Math.Cos(playerYaw)) + playerEntity.Pos.Motion.X), 0.35f * (float)Math.Cos(playerYaw)),
+                NatFloat.createUniform((float)(1.05f * Math.Cos(playerYaw) + playerEntity.Pos.Motion.X), 0.35f * (float)Math.Cos(playerYaw)),
                 NatFloat.createUniform(0.175f + (float)playerEntity.Pos.Motion.Y, 0.5025f),
-                NatFloat.createUniform((float)((-1.05f * Math.Sin(playerYaw)) + playerEntity.Pos.Motion.Z), -0.35f * (float)Math.Sin(playerYaw))
+                NatFloat.createUniform((float)(-1.05f * Math.Sin(playerYaw) + playerEntity.Pos.Motion.Z), -0.35f * (float)Math.Sin(playerYaw))
             };
 
             playerEntity.World.SpawnParticles(bloodParticleProperties);
