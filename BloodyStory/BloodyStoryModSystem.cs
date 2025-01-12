@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using BloodyStory.Config;
+using System.Collections.Generic;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -8,24 +9,23 @@ namespace BloodyStory
 {
     public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point
     {
-        public static BloodyStoryModConfig modConfig
+        public BloodyStoryModConfig modConfig => Config.modConfig;
+
+        public static ConfigManager Config
         {
-            get
-            {
-                return ConfigManager.modConfig;
-            }
+            get; private set;
         }
 
-        static ICoreAPI api;
-        static ICoreClientAPI capi;
-        static ICoreServerAPI sapi;
+        ICoreAPI api;
+        ICoreClientAPI capi;
+        ICoreServerAPI sapi;
 
         public override void Start(ICoreAPI api)
         {
             base.Start(api);
-            BloodyStoryModSystem.api = api;
-            NetManager.Initialise(api);
-            ConfigManager.Initialise(api);
+            this.api = api;
+
+            Config = new(api, "bloodystory.json", "bloodystory");
 
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
 
@@ -161,7 +161,7 @@ namespace BloodyStory
 
         private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
         {
-            ConfigManager.Reload();
+            Config.Reload();
 
             return TextCommandResult.Success();
         }

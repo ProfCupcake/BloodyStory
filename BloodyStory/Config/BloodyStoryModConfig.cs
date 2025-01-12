@@ -1,6 +1,6 @@
 ﻿using ProtoBuf;
 
-namespace BloodyStory
+namespace BloodyStory.Config
 {
     [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     public class BloodyStoryModConfig // TODO: proper config documentation
