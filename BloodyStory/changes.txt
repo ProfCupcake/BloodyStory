@@ -1,5 +1,5 @@
-- big ol' rewrite and cleanup, which also should hopefully fix config issues
+- clients should no longer spam server with config requests (and be spammed with config updates in return)
 
-TODO THIS UPDATE: 
+TODO: 
 - handbook entry
 - localisation

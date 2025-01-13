@@ -12,6 +12,7 @@ namespace BloodyStory.Config
         private readonly string NetChannel;
 
         private bool receivedConfig = false;
+        private bool requestedConfig = false;
 
         private ICoreAPI api;
         private ICoreServerAPI sapi;
@@ -26,7 +27,7 @@ namespace BloodyStory.Config
                 if (_modConfig == null) { Reload(); }
                 else if (api.Side == EnumAppSide.Client)
                 {
-                    if (!receivedConfig) Reload();
+                    if (!receivedConfig && !requestedConfig) Reload();
                 }
                 return _modConfig;
             }
@@ -75,6 +76,8 @@ namespace BloodyStory.Config
                 case (EnumAppSide.Client):
                     _modConfig = new BloodyStoryModConfig();
                     RequestConfig();
+                    requestedConfig = true;
+                    api.Event.RegisterCallback((float d) => { requestedConfig = false; }, 5000);
                     break;
                 case (EnumAppSide.Server):
                     api.Logger.Event("[{0}] trying to load config", new object[] {NetChannel});
