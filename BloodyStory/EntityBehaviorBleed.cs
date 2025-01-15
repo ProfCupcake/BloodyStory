@@ -170,7 +170,7 @@ namespace BloodyStory
                     hungerConsumption += (float)Math.Min(dt * modConfig.regenBoostRate, regenBoost) * modConfig.satietyConsumption;
                 }
             }
-            pHunger.ConsumeSaturation(hungerConsumption);
+            if (hungerConsumption > 0) pHunger.ConsumeSaturation(hungerConsumption);
 
             if (regenBoost != 0)
             {
