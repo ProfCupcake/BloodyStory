@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.Server;
 
@@ -9,6 +10,7 @@ namespace BloodyStory
 {
     public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point
     {
+        public const string bloodParticleNetChannel = "bloodystory:particles";
         public BloodyStoryModConfig modConfig => Config.modConfig;
 
         public static ConfigManager Config
@@ -25,7 +27,10 @@ namespace BloodyStory
             base.Start(api);
             this.api = api;
 
-            Config = new(api, "bloodystory.json", "bloodystory");
+            Config = new(api, "bloodystory.json", "bloodystory:config");
+            
+            api.Network.RegisterUdpChannel(bloodParticleNetChannel)
+                .RegisterMessageType<BleedParticles>();
 
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
 

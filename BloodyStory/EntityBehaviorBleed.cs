@@ -1,6 +1,7 @@
 ﻿using BloodyStory.Config;
 using BloodyStory.Lib;
 using System;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
@@ -14,6 +15,7 @@ namespace BloodyStory
 {
     public class EntityBehaviorBleed : EntityBehavior
     {
+        static string bloodParticleNetChannel => BloodyStoryModSystem.bloodParticleNetChannel;
         static BloodyStoryModConfig modConfig => BloodyStoryModSystem.Config.modConfig;
 
         public event OnBleedoutDelegate OnBleedout;
@@ -50,6 +52,23 @@ namespace BloodyStory
         public override string PropertyName()
         {
             return "bleed";
+        }
+
+        public override void Initialize(EntityProperties properties, JsonObject attributes)
+        {
+            base.Initialize(properties, attributes);
+
+            switch (entity.Api.Side)
+            {
+                case EnumAppSide.Server:
+                    ((ICoreServerAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel)
+                    .SetMessageHandler<BleedParticles>(ServerSpawnParticles);
+                    break;
+                case EnumAppSide.Client:
+                    ((ICoreClientAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel)
+                    .SetMessageHandler<BleedParticles>(ClientSpawnParticles);
+                    break;
+            }
         }
 
         public override void AfterInitialized(bool onFirstSpawn)
@@ -346,58 +365,6 @@ namespace BloodyStory
             ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, "Received ~" + Math.Round(regenBoostAdd, 1) + " HP of regen boost from food", EnumChatType.Notification); //TODO: localisation
         }
 
-        private static readonly AdvancedParticleProperties[] waterBloodParticleProperties = new AdvancedParticleProperties[]
-        {
-            new()
-            {
-                Quantity = NatFloat.One,
-                ParentVelocityWeight = 1f,
-                Velocity = new NatFloat[]
-                {
-                    NatFloat.Zero,
-                    NatFloat.Zero,
-                    NatFloat.Zero
-                },
-                HsvaColor = new NatFloat[]
-                {
-                    NatFloat.Zero,
-                    NatFloat.createUniform(255f,0f),
-                    NatFloat.createUniform(255f,0f),
-                    NatFloat.createUniform(255f,0f)
-                },
-                PosOffset = new NatFloat[]
-                {
-                    NatFloat.Zero,
-                    NatFloat.Zero,
-                    NatFloat.Zero
-                },
-                ParticleModel = EnumParticleModel.Quad,
-                DieInAir = true,
-                SwimOnLiquid = false,
-                GravityEffect = NatFloat.createUniform(0.05f, 0.05f),
-                Size = NatFloat.createUniform(0.2f, 0.15f),
-                SizeEvolve = EvolvingNatFloat.create(EnumTransformFunction.LINEARINCREASE, 1f),
-                OpacityEvolve = EvolvingNatFloat.create(EnumTransformFunction.LINEARNULLIFY, -255f)
-            }
-        };
-
-        private static readonly AdvancedParticleProperties bloodParticleProperties = new()
-        {
-            HsvaColor = new NatFloat[]
-                {
-                    NatFloat.Zero,
-                    NatFloat.createUniform(255f,0f),
-                    NatFloat.createUniform(255f,0f),
-                    NatFloat.createUniform(255f,0f)
-                },
-            LifeLength = NatFloat.One,
-            GravityEffect = NatFloat.One,
-            Size = NatFloat.createUniform(0.35f, 0.15f),
-            DieInLiquid = true,
-            DeathParticles = waterBloodParticleProperties,
-            ParticleModel = EnumParticleModel.Cube
-        };
-
         void SpawnBloodParticles()
         {
             EntityPlayer playerEntity = entity as EntityPlayer;
@@ -412,9 +379,8 @@ namespace BloodyStory
 
             float posOffset_x = (float)(0.2f * Math.Cos(playerYaw + Math.PI / 2));
             float posOffset_y = (float)(-0.2f * Math.Sin(playerYaw + Math.PI / 2));
-
+            BleedParticles bloodParticleProperties = new();
             bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
-
             bloodParticleProperties.basePos = playerEntity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + Math.PI / 2), bloodHeight, 0.2f * Math.Sin(playerYaw + Math.PI / 2));
             bloodParticleProperties.PosOffset = new NatFloat[]
             {
@@ -422,7 +388,6 @@ namespace BloodyStory
                 NatFloat.createUniform(0.2f,0.2f),
                 NatFloat.createUniform(posOffset_y, posOffset_y)
             };
-
             bloodParticleProperties.Velocity = new NatFloat[]
             {
                 NatFloat.createUniform((float)(1.05f * Math.Cos(playerYaw) + playerEntity.Pos.Motion.X), 0.35f * (float)Math.Cos(playerYaw)),
@@ -430,7 +395,18 @@ namespace BloodyStory
                 NatFloat.createUniform((float)(-1.05f * Math.Sin(playerYaw) + playerEntity.Pos.Motion.Z), -0.35f * (float)Math.Sin(playerYaw))
             };
 
-            playerEntity.World.SpawnParticles(bloodParticleProperties);
+            ((ICoreClientAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).SendPacket(bloodParticleProperties);
+            ClientSpawnParticles(bloodParticleProperties);
+        }
+
+        private void ServerSpawnParticles(IServerPlayer fromPlayer, BleedParticles packet)
+        {
+            ((ICoreServerAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).BroadcastPacket(packet, fromPlayer);
+        }
+
+        private void ClientSpawnParticles(BleedParticles packet)
+        {
+            entity.World.SpawnParticles(packet);
         }
     }
 }
