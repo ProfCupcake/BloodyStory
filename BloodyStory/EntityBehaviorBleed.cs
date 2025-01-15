@@ -108,7 +108,7 @@ namespace BloodyStory
 
         private void ServerTick(float dt)
         {
-            if (entity == null || !entity.Alive || pauseBleedProcess || entity.WatchedAttributes.GetBool("unconscious")) return;
+            if (entity == null || !entity.Alive || pauseBleedProcess) return;
 
             if (((EntityPlayer)entity).Player is not IServerPlayer serverPlayer || serverPlayer.ConnectionState != EnumClientState.Playing) return;
 
@@ -246,8 +246,6 @@ namespace BloodyStory
             }
 
             if (dmgSource.Source == EnumDamageSource.Void) return damage;
-
-            if (playerAttributes.GetBool("unconscious")) return damage;
 
             switch (dmgSource.Type) // possible alternate implementation: dictionary, with dmg type as keys and functions as values?
             {

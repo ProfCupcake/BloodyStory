@@ -1,4 +1,5 @@
-- clients should no longer spam server with config requests (and be spammed with config updates in return)
+ - removed now-superfluous "unconscious" check :]
+
 
 TODO: 
 - handbook entry
