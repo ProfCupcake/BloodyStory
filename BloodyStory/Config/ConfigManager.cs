@@ -77,7 +77,7 @@ namespace BloodyStory.Config
                     _modConfig = new BloodyStoryModConfig();
                     RequestConfig();
                     requestedConfig = true;
-                    api.Event.RegisterCallback((float d) => { requestedConfig = false; }, 5000);
+                    capi.Event.RegisterCallback((float d) => { requestedConfig = false; }, 5000);
                     break;
                 case (EnumAppSide.Server):
                     api.Logger.Event("[{0}] trying to load config", new object[] {NetChannel});
@@ -87,13 +87,14 @@ namespace BloodyStory.Config
                         api.Logger.Event("[{0}] generating new config", new object[] { NetChannel });
                         _modConfig = new BloodyStoryModConfig();
                         api.StoreModConfig(_modConfig, ConfigFilename);
-                    }
+                    } else api.Logger.Event("[{0}] config loaded", new object[] { NetChannel });
                     BroadcastConfig();
                     break;
             }
         }
         public void RequestConfig()
         {
+            api.Logger.Event("[{0}] requesting config from server", new object[] { NetChannel });
             capi.Network.GetChannel(NetChannel).SendPacket<NetMessage_Request>(new());
         }
         private void ReceiveConfig(BloodyStoryModConfig packet)
@@ -109,6 +110,7 @@ namespace BloodyStory.Config
         }
         public void BroadcastConfig()
         {
+            api.Logger.Event("[{0}] broadcasting config to all players", new object[] { NetChannel });
             sapi.Network.GetChannel(NetChannel).BroadcastPacket(modConfig);
         }
 

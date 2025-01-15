@@ -166,7 +166,7 @@ namespace BloodyStory
 
         private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
         {
-            Config.Reload();
+            api.Event.EnqueueMainThreadTask(Config.Reload, "bsconfigreload");
 
             return TextCommandResult.Success();
         }
