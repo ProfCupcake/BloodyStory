@@ -207,8 +207,8 @@ namespace BloodyStory
                 {
                     d(out shouldDie, lastHit);
                 }
-                    if (!shouldDie) return;
-                }
+                if (!shouldDie) return;
+            }
 
             entity.Die(EnumDespawnReason.Death, lastHit);
         }
@@ -276,7 +276,7 @@ namespace BloodyStory
                     bleedRate -= damage;
                     if (bleedRate < 0) bleedRate = 0;
                     bleedLevel = bleedRate;
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Healed ~" + Math.Round(damage / modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get( "damagelog-bleed-healed" , new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
                     ReceiveDamageReplacer(byPlayer, dmgSource, damage);
                     damage = 0;
                     break;
@@ -285,20 +285,21 @@ namespace BloodyStory
                 case EnumDamageType.PiercingAttack:
                     bleedLevel += damage;
                     lastHit = dmgSource;
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Received ~" + Math.Round(damage / modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("damagelog-bleed-gained", new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
                     ReceiveDamageReplacer(byPlayer, dmgSource, damage);
                     damage = 0;
                     break;
                 case EnumDamageType.Poison:
                     bleedLevel += damage;
                     lastHit = dmgSource;
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("damagelog-bleed-gained", new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
                     ReceiveDamageReplacer(byPlayer, dmgSource, damage);
                     damage = 0;
                     break;
                 case EnumDamageType.Gravity: break;
                 case EnumDamageType.Fire:
                     bleedLevel -= damage * modConfig.bleedCautMultiplier;
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, "Cauterised ~" + Math.Round(damage * modConfig.bleedCautMultiplier / modConfig.bleedQuotient, 3) + " HP/s bleed", EnumChatType.Notification); // TODO: localisation
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("damagelog-bleed-cauterised", new object[] { Math.Round(damage * modConfig.bleedCautMultiplier / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
                     break; // :]
                 case EnumDamageType.Suffocation: break;
                 case EnumDamageType.Hunger: break;
@@ -362,7 +363,7 @@ namespace BloodyStory
         {
             double regenBoostAdd = saturation / modConfig.regenBoostQuotient;
             regenBoost += regenBoostAdd;
-            ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, "Received ~" + Math.Round(regenBoostAdd, 1) + " HP of regen boost from food", EnumChatType.Notification); //TODO: localisation
+            ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("damagelog-regenboost-gained", new object[] { Math.Round(regenBoostAdd, 1) }), EnumChatType.Notification);
         }
 
         void SpawnBloodParticles()

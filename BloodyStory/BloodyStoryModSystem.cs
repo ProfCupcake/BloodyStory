@@ -94,12 +94,12 @@ namespace BloodyStory
             if (bleedEB.pauseBleedProcess)
             {
                 bleedEB.pauseBleedProcess = false;
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleeding resumed", EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleed-resumed"), EnumChatType.Notification);
             }
             else
             {
                 bleedEB.pauseBleedProcess = true;
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleeding paused", EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleed-paused"), EnumChatType.Notification);
             }
 
             return TextCommandResult.Success();
@@ -114,12 +114,12 @@ namespace BloodyStory
             if (bleedEB.pauseBleedParticles)
             {
                 bleedEB.pauseBleedParticles = false;
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleeding resumed", EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleed-resumed"), EnumChatType.Notification);
             }
             else
             {
                 bleedEB.pauseBleedParticles = true;
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleeding paused", EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleed-paused"), EnumChatType.Notification);
             }
 
             return TextCommandResult.Success();
@@ -141,14 +141,14 @@ namespace BloodyStory
             {
                 bleedEB.OnBleedout -= dele;
                 bleedoutDelegateDict.Remove(bleedEB);
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleedout enabled", EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleedout-enabled"), EnumChatType.Notification);
             }
             else
             {
                 dele = (out bool shouldDie, DamageSource _) => { shouldDie = false; };
                 bleedEB.OnBleedout += dele;
                 bleedoutDelegateDict.Add(bleedEB, dele);
-                player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleedout disabled", EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleedout-disabled"), EnumChatType.Notification);
             }
 
             return TextCommandResult.Success();
@@ -178,9 +178,7 @@ namespace BloodyStory
 
             player.Entity.GetBehavior<EntityBehaviorBleed>().bleedLevel += amount;
 
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Added " + amount + " bleed", EnumChatType.Notification);
-
-            return TextCommandResult.Success();
+            return TextCommandResult.Success(Lang.Get("command-bleed-added", new object[] { amount }));
         }
 
         public override void StartClientSide(ICoreClientAPI api)
@@ -192,15 +190,9 @@ namespace BloodyStory
             IServerPlayer player = args.Caller.Player as IServerPlayer;
             EntityBehaviorBleed bleedEB = player.Entity.GetBehavior<EntityBehaviorBleed>();
 
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed level: " + bleedEB.bleedLevel, EnumChatType.Notification);
+            string message = Lang.Get("command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
 
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Bleed rate: " + bleedEB.GetBleedRate(true) + " HP/s", EnumChatType.Notification);
-
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Current regen rate: " + bleedEB.GetRegenRate(true) + " HP/s", EnumChatType.Notification);
-
-            player.SendMessage(GlobalConstants.GeneralChatGroup, "Remaining regen boost: " + bleedEB.regenBoost + " HP", EnumChatType.Notification);
-
-            return TextCommandResult.Success();
+            return TextCommandResult.Success(message);
         }
     }
 }
