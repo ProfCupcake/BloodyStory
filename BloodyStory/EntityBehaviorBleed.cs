@@ -202,13 +202,13 @@ namespace BloodyStory
         {
             if (OnBleedout != null)
             {
+                bool shouldDie = true;
                 foreach (OnBleedoutDelegate d in OnBleedout.GetInvocationList())
                 {
-                    bool shouldDie = true;
                     d(out shouldDie, lastHit);
+                }
                     if (!shouldDie) return;
                 }
-            }
 
             entity.Die(EnumDespawnReason.Death, lastHit);
         }
