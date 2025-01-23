@@ -22,6 +22,9 @@ namespace BloodyStory
 
         DamageSource lastHit;
 
+        float hungerTickTimer;
+        float hungerConsumption;
+
         public double bleedLevel
         {
             get => entity.WatchedAttributes.GetDouble("BS_bleed");
@@ -125,7 +128,7 @@ namespace BloodyStory
             }
         }
 
-        private void ServerTick(float dt)
+        private void ServerTick(float dtr)
         {
             if (entity == null || !entity.Alive || pauseBleedProcess) return;
 
@@ -133,7 +136,7 @@ namespace BloodyStory
 
             if (modConfig == null) return;
 
-            dt *= entity.World.Calendar.CalendarSpeedMul * entity.World.Calendar.SpeedOfTime; // realtime -> game time
+            float dt = dtr * entity.World.Calendar.CalendarSpeedMul * entity.World.Calendar.SpeedOfTime; // realtime -> game time
             dt /= 30; // 24 hrs -> 48 mins
             dt *= modConfig.timeDilation;
 
@@ -167,14 +170,13 @@ namespace BloodyStory
 
             // Note: regen boost is also included in this now
             // I dunno if that's a good thing or not
-            float hungerConsumption = 0;
             if (beforeHealth < pHealth.MaxHealth || bleedLevel > 0)
             {
                 if (beforeHealth == pHealth.MaxHealth && pHealth.Health == pHealth.MaxHealth)
                 {
                     // bleed rate > 0, but < regen, and is capping at max health
                     // therefore, total health regen equals amount of bleed this tick
-                    hungerConsumption = (float)(CalculateDmgCum(dt, bleedDmg, 0) * modConfig.satietyConsumption);
+                    hungerConsumption += (float)(CalculateDmgCum(dt, bleedDmg, 0) * modConfig.satietyConsumption);
                 }
                 else/* if (pHealth.Health == pHealth.MaxHealth)
                 {
@@ -185,11 +187,14 @@ namespace BloodyStory
                 } else //*/
                 {
                     // simplest situation: we have been doing health regen this whole tick, so just calculate total health regen
-                    hungerConsumption = (float)(modConfig.satietyConsumption * regenRate * dt);
+                    hungerConsumption += (float)(modConfig.satietyConsumption * regenRate * dt);
                     hungerConsumption += (float)Math.Min(dt * modConfig.regenBoostRate, regenBoost) * modConfig.satietyConsumption;
                 }
             }
-            if (hungerConsumption > 0) pHunger.ConsumeSaturation(hungerConsumption);
+            hungerTickTimer += dtr;
+            if (hungerTickTimer > 1f) 
+                if (hungerConsumption > 0) 
+                    pHunger.ConsumeSaturation(hungerConsumption);
 
             if (regenBoost != 0)
             {
