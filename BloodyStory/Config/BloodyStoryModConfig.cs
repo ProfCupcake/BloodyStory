@@ -16,6 +16,9 @@ namespace BloodyStory.Config
         public int regenSitDelay = 5000; // delay before the sit boost is applied, in ms
         public double regenSitMultiplier = 3f; // multiplier for regen when sitting
 
+        public float bleedDamageMultiplier = 1f; // multiplier for damage taken as bleed
+        public float directDamageMultiplier = 0f; // multiplier for damage allowed through after bleed is applied
+
         public double bleedHealRate = 0.15f; // natural bleeding reduction
         public double bleedQuotient = 12f; // quotient for hp loss to bleed
         public double sneakMultiplier = 8f; // multiplier for bleed quotient applied when sneaking

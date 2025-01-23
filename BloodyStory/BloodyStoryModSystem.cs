@@ -59,11 +59,6 @@ namespace BloodyStory
                 .WithArgs(new ICommandArgumentParser[] { sapi.ChatCommands.Parsers.OptionalDouble("bleedAmount", 1) })
                 .HandleWith(MakeMeBleedCommand);
 
-            sapi.ChatCommands.Create("bsconfigreload")
-                .WithDescription("Reloads Bloody Story config file")
-                .RequiresPrivilege(Privilege.root)
-                .HandleWith(ReloadConfigCommand);
-
             sapi.ChatCommands.Create("preventbleedout")
                 .WithDescription("Toggles player bleedout (player will not die from bleed)")
                 .RequiresPlayer()
@@ -94,12 +89,12 @@ namespace BloodyStory
             if (bleedEB.pauseBleedProcess)
             {
                 bleedEB.pauseBleedProcess = false;
-                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleed-resumed"), EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("bloodystory:command-bleed-resumed"), EnumChatType.Notification);
             }
             else
             {
                 bleedEB.pauseBleedProcess = true;
-                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleed-paused"), EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("bloodystory:command-bleed-paused"), EnumChatType.Notification);
             }
 
             return TextCommandResult.Success();
@@ -114,12 +109,12 @@ namespace BloodyStory
             if (bleedEB.pauseBleedParticles)
             {
                 bleedEB.pauseBleedParticles = false;
-                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleed-resumed"), EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("bloodystory:command-bleed-resumed"), EnumChatType.Notification);
             }
             else
             {
                 bleedEB.pauseBleedParticles = true;
-                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleed-paused"), EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("bloodystory:command-bleed-paused"), EnumChatType.Notification);
             }
 
             return TextCommandResult.Success();
@@ -141,14 +136,14 @@ namespace BloodyStory
             {
                 bleedEB.OnBleedout -= dele;
                 bleedoutDelegateDict.Remove(bleedEB);
-                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleedout-enabled"), EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("bloodystory:command-bleedout-enabled"), EnumChatType.Notification);
             }
             else
             {
                 dele = (out bool shouldDie, DamageSource _) => { shouldDie = false; };
                 bleedEB.OnBleedout += dele;
                 bleedoutDelegateDict.Add(bleedEB, dele);
-                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("command-bleedout-disabled"), EnumChatType.Notification);
+                player.SendMessage(GlobalConstants.GeneralChatGroup, Lang.Get("bloodystory:command-bleedout-disabled"), EnumChatType.Notification);
             }
 
             return TextCommandResult.Success();
@@ -164,12 +159,6 @@ namespace BloodyStory
             bleedEB.pauseBleedProcess = false;
         }
 
-        private TextCommandResult ReloadConfigCommand(TextCommandCallingArgs args)
-        {
-            api.Event.EnqueueMainThreadTask(Config.Reload, "bsconfigreload");
-
-            return TextCommandResult.Success();
-        }
         private TextCommandResult MakeMeBleedCommand(TextCommandCallingArgs args)
         {
             IServerPlayer player = args.Caller.Player as IServerPlayer;
@@ -178,7 +167,7 @@ namespace BloodyStory
 
             player.Entity.GetBehavior<EntityBehaviorBleed>().bleedLevel += amount;
 
-            return TextCommandResult.Success(Lang.Get("command-bleed-added", new object[] { amount }));
+            return TextCommandResult.Success(Lang.Get("bloodystory:command-bleed-added", new object[] { amount }));
         }
 
         public override void StartClientSide(ICoreClientAPI api)
@@ -190,7 +179,7 @@ namespace BloodyStory
             IServerPlayer player = args.Caller.Player as IServerPlayer;
             EntityBehaviorBleed bleedEB = player.Entity.GetBehavior<EntityBehaviorBleed>();
 
-            string message = Lang.Get("command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
+            string message = Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
 
             return TextCommandResult.Success(message);
         }

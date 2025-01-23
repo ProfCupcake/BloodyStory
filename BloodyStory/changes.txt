@@ -1,6 +1,9 @@
  - removed now-superfluous "unconscious" check :]
+ - implemented localisation
+ - maybe networked particles? need someone to actually test with other players
+ - two new config options to adjust amount of bleed added and to allow some amount of direct damage through
+ - removed "bsconfigreload" command, since it seems not to work correctly anyway; you'll just have to reload the config the old fashioned way
 
 
 TODO: 
 - handbook entry
-- localisation

@@ -276,30 +276,32 @@ namespace BloodyStory
                     bleedRate -= damage;
                     if (bleedRate < 0) bleedRate = 0;
                     bleedLevel = bleedRate;
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get( "damagelog-bleed-healed" , new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-healed" , new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
                     ReceiveDamageReplacer(byPlayer, dmgSource, damage);
                     damage = 0;
                     break;
                 case EnumDamageType.BluntAttack:
                 case EnumDamageType.SlashingAttack:
                 case EnumDamageType.PiercingAttack:
-                    bleedLevel += damage;
+                    float bleedDamage = damage;
+                    bleedDamage *= modConfig.bleedDamageMultiplier;
+                    bleedLevel += bleedDamage;
                     lastHit = dmgSource;
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("damagelog-bleed-gained", new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-gained", new object[] { Math.Round(damage * modConfig.bleedDamageMultiplier / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
                     ReceiveDamageReplacer(byPlayer, dmgSource, damage);
-                    damage = 0;
+                    damage *= modConfig.directDamageMultiplier;
                     break;
                 case EnumDamageType.Poison:
                     bleedLevel += damage;
                     lastHit = dmgSource;
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("damagelog-bleed-gained", new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-gained", new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
                     ReceiveDamageReplacer(byPlayer, dmgSource, damage);
                     damage = 0;
                     break;
                 case EnumDamageType.Gravity: break;
                 case EnumDamageType.Fire:
                     bleedLevel -= damage * modConfig.bleedCautMultiplier;
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("damagelog-bleed-cauterised", new object[] { Math.Round(damage * modConfig.bleedCautMultiplier / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
+                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-cauterised", new object[] { Math.Round(damage * modConfig.bleedCautMultiplier / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
                     break; // :]
                 case EnumDamageType.Suffocation: break;
                 case EnumDamageType.Hunger: break;
@@ -363,7 +365,7 @@ namespace BloodyStory
         {
             double regenBoostAdd = saturation / modConfig.regenBoostQuotient;
             regenBoost += regenBoostAdd;
-            ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("damagelog-regenboost-gained", new object[] { Math.Round(regenBoostAdd, 1) }), EnumChatType.Notification);
+            ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-regenboost-gained", new object[] { Math.Round(regenBoostAdd, 1) }), EnumChatType.Notification);
         }
 
         void SpawnBloodParticles()
