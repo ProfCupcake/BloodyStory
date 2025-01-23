@@ -33,7 +33,7 @@ namespace BloodyStory.Config
         public float maxSatietyMultiplier = 1.2f; // multiplier for regen rate at maximum hunger saturation
         public float minSatietyMultiplier = 0f; // multiplier for regen rate at minimum hunger saturation
 
-        public float satietyConsumption = 1f; // hunger saturation consumed per point of hp restored (sans bonus)
+        public float satietyConsumption = 50f; // hunger saturation consumed per point of hp restored
 
         public float timeDilation = 1.0f; // to adjust simulated second speed, for if game speed is changed
     }

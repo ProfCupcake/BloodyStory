@@ -192,9 +192,13 @@ namespace BloodyStory
                 }
             }
             hungerTickTimer += dtr;
-            if (hungerTickTimer > 1f) 
-                if (hungerConsumption > 0) 
+            if (hungerTickTimer > 1f)
+                if (hungerConsumption > 0)
+                {
                     pHunger.ConsumeSaturation(hungerConsumption);
+                    hungerTickTimer = 0f;
+                    hungerConsumption = 0f;
+                }
 
             if (regenBoost != 0)
             {
