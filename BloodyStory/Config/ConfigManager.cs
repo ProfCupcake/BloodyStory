@@ -77,7 +77,7 @@ namespace BloodyStory.Config
                     _modConfig = new BloodyStoryModConfig();
                     RequestConfig();
                     requestedConfig = true;
-                    capi.Event.RegisterCallback((float d) => { requestedConfig = false; }, 5000);
+                    capi.Event.EnqueueMainThreadTask(() => { capi.Event.RegisterCallback((float d) => { requestedConfig = false; }, 5000); }, "registerconfigcallback");
                     break;
                 case (EnumAppSide.Server):
                     api.Logger.Event("[{0}] trying to load config", new object[] {NetChannel});
