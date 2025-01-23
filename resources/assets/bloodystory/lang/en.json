@@ -1,3 +1,15 @@
 {
-    "item-improvised-patch": "Improvised Patch"
+  "item-improvised-patch": "Improvised Patch",
+
+  "damagelog-bleed-healed": "Healed ~{0} HP/s bleed",
+  "damagelog-bleed-gained": "Received ~{0} HP/s bleed",
+  "damagelog-bleed-cauterised": "Cauterised ~{0} HP/s bleed",
+  "damagelog-regenboost-gained": "Gained {0} HP of regen boost from food",
+
+  "command-bleed-added": "Added {0} points of bleed",
+  "command-bleed-stats": "Bleed Level: {0}\nBleed Rate: {1} HP/s \nRegen Rate: {2} HP/s \nRemaining Regen Boost: {3} HP",
+  "command-bleedout-enabled": "Bleedout enabled",
+  "command-bleedout-disabled": "Bleedout disabled",
+  "command-bleed-paused": "Bleeding paused",
+  "command-bleed-resumed": "Bleeding resumed"
 }
