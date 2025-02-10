@@ -310,6 +310,7 @@ namespace BloodyStory
                 case EnumDamageType.Gravity: break;
                 case EnumDamageType.Fire:
                     bleedLevel -= damage * modConfig.bleedCautMultiplier;
+                    if (bleedLevel < 0) bleedLevel = 0;
                     byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-cauterised", new object[] { Math.Round(damage * modConfig.bleedCautMultiplier / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
                     break; // :]
                 case EnumDamageType.Suffocation: break;
