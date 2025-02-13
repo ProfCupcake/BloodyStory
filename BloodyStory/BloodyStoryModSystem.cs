@@ -52,7 +52,8 @@ namespace BloodyStory
             sapi.ChatCommands.Create("bleed")
                 .WithDescription("Outputs precise bleed and regen levels")
                 .RequiresPlayer()
-                .RequiresPrivilege(Privilege.chat)
+                .RequiresPrivilege(Privilege.root)
+                .WithArgs(new ICommandArgumentParser[] { sapi.ChatCommands.Parsers.OnlinePlayer("player") })
                 .HandleWith(BleedCommand);
 
             sapi.ChatCommands.Create("makeMeBleed")
@@ -197,7 +198,7 @@ namespace BloodyStory
 
             if (modConfig.detailedBleedCheck)
             {
-                message += "\n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
+                message += "-\n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
             } else
             {
                 string bleedRating; // TODO: replace this hardcoded placeholder with a proper solution
@@ -231,10 +232,11 @@ namespace BloodyStory
 
         private TextCommandResult BleedCommand(TextCommandCallingArgs args)
         {
-            IServerPlayer player = args.Caller.Player as IServerPlayer;
+            IServerPlayer player = args[0] as IServerPlayer;
             EntityBehaviorBleed bleedEB = player.Entity.GetBehavior<EntityBehaviorBleed>();
 
-            string message = Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
+            string message = player.PlayerName + "'s bleeding:-\n"
+                + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
 
             return TextCommandResult.Success(message);
         }
