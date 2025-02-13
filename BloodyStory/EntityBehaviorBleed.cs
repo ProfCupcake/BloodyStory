@@ -338,7 +338,7 @@ namespace BloodyStory
             {
                 player.Entity.OnHurt(dmgSource, damage);
                 if (damage > 1f) player.Entity.AnimManager.StartAnimation("hurt");
-                player.Entity.PlayEntitySound("hurt", null, true, 24f);
+                if (dmgSource.Type != EnumDamageType.Heal) player.Entity.PlayEntitySound("hurt", null, true, 24f);
             }
 
             // from Entity.ReceiveDamage

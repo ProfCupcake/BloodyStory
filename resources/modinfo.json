@@ -6,7 +6,7 @@
     "Professor Cupcake"
   ],
   "description": "Changes all combat damage to bleeding",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "dependencies": {
     "game": "*"
   },
