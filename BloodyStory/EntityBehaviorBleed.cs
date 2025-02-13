@@ -45,6 +45,11 @@ namespace BloodyStory
             get => entity.WatchedAttributes.GetBool("BS_pauseParticles");
             set => entity.WatchedAttributes.SetBool("BS_pauseParticles", value);
         }
+        public double regenRate_clientSync
+        {
+            get => entity.WatchedAttributes.GetDouble("BS_regenRate_clientSync");
+            set => entity.WatchedAttributes.SetDouble("BS_regenRate_clientSync", value);
+        }
 
         private long SitStartTime;
 
@@ -231,6 +236,17 @@ namespace BloodyStory
 
         public double GetRegenRate(bool includeBoost = false)
         {
+            if (entity.Api.Side == EnumAppSide.Client)
+            {
+                if (includeBoost && regenBoost > 0)
+                {
+                    return regenRate_clientSync + modConfig.regenBoostRate;
+                } else
+                {
+                    return regenRate_clientSync;
+                }
+            }
+            
             EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
             EntityBehaviorHunger pHunger = entity.GetBehavior<EntityBehaviorHunger>();
 
@@ -257,6 +273,8 @@ namespace BloodyStory
             }
             regenRate *= Interpolate(modConfig.minSatietyMultiplier, modConfig.maxSatietyMultiplier, pHunger.Saturation / pHunger.MaxSaturation);
 
+            regenRate_clientSync = regenRate; // TODO: fix this awful hack solution
+            
             if (includeBoost && regenBoost > 0) regenRate += modConfig.regenBoostRate;
 
             return regenRate;
