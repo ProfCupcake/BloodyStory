@@ -26,7 +26,7 @@ namespace BloodyStory.Config
         public double bleedCautMultiplier = 1f; // multiplier for how much bleed is reduced by fire damage
 
         public double bloodParticleMultiplier = 1f; // multiplier for the quantity of blood particles produced
-        public double bloodParticleDelay = 0.05f;
+        public double bloodParticleDelay = 0.05f; // delay between particle spawns, in seconds
 
         public float bandageMultiplier = 1f; // multiplier for the amount of bleed reduction when using bandages/poultice
 
@@ -36,5 +36,12 @@ namespace BloodyStory.Config
         public float satietyConsumption = 50f; // hunger saturation consumed per point of hp restored
 
         public float timeDilation = 1.0f; // to adjust simulated second speed, for if game speed is changed
+
+        public bool detailedBleedCheck = false; // if true, bleed check key gives precise numbers; if false, it gives vague rating of bleeding
+
+        public float bleedRating_Trivial = 1; // for vague bleed rating: at or below this bleed level is rated "trivial"
+        public float bleedRating_Minor = 3; // as above, for "Minor"
+        public float bleedRating_Moderate = 6; // as above, for "Moderate"
+        public float bleedRating_Severe = 12; // as above, for "Severe"; bleed rates above this will be rated "Extreme"
     }
 }
