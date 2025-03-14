@@ -194,27 +194,29 @@ namespace BloodyStory
             target ??= capi.World.Player.Entity;
             EntityBehaviorBleed bleedEB = target.GetBehavior<EntityBehaviorBleed>();
 
-            string message = target.GetName() + "'s bleeding:";
+            string message;
 
             if (modConfig.detailedBleedCheck)
             {
-                message += "-\n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
+                message = $"{target.GetName()}'s bleeding:-\n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
             } else
             {
-                string bleedRating; // TODO: replace this hardcoded placeholder with a proper solution
-                if (bleedEB.bleedLevel <= 0)
+                string bleedRating; // TODO: replace this hardcoded placeholder with a proper solution, also localisation
+
+                double bleedLevel = bleedEB.bleedLevel;
+                if (bleedLevel <= 0)
                 {
                     bleedRating = "None";
-                } else if (bleedEB.bleedLevel <= modConfig.bleedRating_Trivial)
+                } else if (bleedLevel <= modConfig.bleedRating_Trivial)
                 {
                     bleedRating = "Trivial";
-                } else if (bleedEB.bleedLevel <= modConfig.bleedRating_Minor)
+                } else if (bleedLevel <= modConfig.bleedRating_Minor)
                 {
                     bleedRating = "Minor";
-                } else if (bleedEB.bleedLevel <= modConfig.bleedRating_Moderate)
+                } else if (bleedLevel <= modConfig.bleedRating_Moderate)
                 {
                     bleedRating = "Moderate";
-                } else if (bleedEB.bleedLevel <= modConfig.bleedRating_Severe)
+                } else if (bleedLevel <= modConfig.bleedRating_Severe)
                 {
                     bleedRating = "Severe";
                 } else
@@ -222,7 +224,7 @@ namespace BloodyStory
                     bleedRating = "Extreme";
                 }
 
-                message += " " + bleedRating;
+                message = $"{target.GetName()}'s bleeding: {bleedRating}";
             }
 
             capi.ShowChatMessage(message);

@@ -1,9 +1,6 @@
- - removed now-superfluous "unconscious" check :]
- - implemented localisation
- - maybe networked particles? need someone to actually test with other players
- - two new config options to adjust amount of bleed added and to allow some amount of direct damage through
- - removed "bsconfigreload" command, since it seems not to work correctly anyway; you'll just have to reload the config the old fashioned way
- - fix for hunger issues
+- Added a keybind (B by default) that allows you to check your current bleed level or the player you are targeting
+- Added an option for the above, enabled by default, which causes it to give a vague description of the bleed level rather than precise numbers
+- 
 
 TODO: 
 - handbook entry
