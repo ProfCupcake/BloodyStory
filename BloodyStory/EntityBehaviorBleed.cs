@@ -88,7 +88,7 @@ namespace BloodyStory
                 IServerPlayer player = ((EntityPlayer)entity).Player as IServerPlayer;
                 EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
 
-                if (entity.Api.ModLoader.GetMod("combatoverhaul") != null)
+                if (entity.Api.ModLoader.GetMod("overhaullib") != null)
                 {
                     COCompat.AddCODamageEH(player, this);
                     pHealth.onDamaged += (dmg, dmgSrc) =>

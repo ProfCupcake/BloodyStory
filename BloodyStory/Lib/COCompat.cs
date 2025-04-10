@@ -1,6 +1,6 @@
-﻿using CombatOverhaul.DamageSystems;
-using Vintagestory.API.Common;
+﻿using Vintagestory.API.Common;
 using Vintagestory.API.Server;
+using CombatOverhaul.DamageSystems;
 
 namespace BloodyStory.Lib
 {
