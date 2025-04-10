@@ -1,4 +1,5 @@
 ﻿using BloodyStory.Config;
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using Vintagestory.API.Client;
@@ -10,11 +11,13 @@ using Vintagestory.API.Server;
 
 namespace BloodyStory
 {
-    public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point
+    public class BloodyStoryModSystem : ModSystem
     {
         public const string bloodParticleNetChannel = "bloodystory:particles";
         public const string bleedCheckHotkeyCode = "bleedCheck";
         public BloodyStoryModConfig modConfig => Config.modConfig;
+
+        Harmony harmony;
 
         public static ConfigManager Config
         {
@@ -24,6 +27,14 @@ namespace BloodyStory
         ICoreAPI api;
         ICoreClientAPI capi;
         ICoreServerAPI sapi;
+
+        public override void StartPre(ICoreAPI api)
+        {
+            base.StartPre(api);
+
+            harmony = new("bloodystory");
+            harmony.PatchAll();
+        }
 
         public override void Start(ICoreAPI api)
         {
@@ -36,6 +47,7 @@ namespace BloodyStory
                 .RegisterMessageType<BleedParticles>();
 
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
+            api.RegisterEntityBehaviorClass("health_bs", typeof(EntityBehaviorHealth_BS));
 
             api.World.Config.SetFloat("playerHealthRegenSpeed", 0f); // this is probably fine
         }
@@ -43,6 +55,8 @@ namespace BloodyStory
         public override void Dispose()
         {
             base.Dispose();
+
+            harmony.UnpatchAll("bloodystory");
         }
 
         public override void StartServerSide(ICoreServerAPI api)
