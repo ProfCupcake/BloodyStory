@@ -10,45 +10,11 @@ namespace BloodyStory
 {
     class EntityBehaviorHealth_BS : EntityBehaviorHealth
     {
-        //new public event OnDamagedDelegate onDamaged = base.onDamaged; (float dmg, DamageSource dmgSource) => dmg;
+        // additional onDamaged event running after the regular EBHealth onDamaged
+        public event OnDamagedDelegate onDamagedPost = (float dmg, DamageSource dmgSource) => dmg;
 
         public EntityBehaviorHealth_BS(Entity entity) : base(entity)
         {
-        }
-
-        public override void AfterInitialized(bool onFirstSpawn)
-        {
-            base.AfterInitialized(onFirstSpawn);
-
-            if (entity.Api.Side == EnumAppSide.Client) return;
-
-            entity.Api.Logger.Debug($"[BSEBH] {entity.GetName()} got the fancy schmancy new EBHealth, get a load of that guy");
-
-            /*
-            List<EntityBehaviorHealth> ebhList = entity.SidedProperties.Behaviors
-                .FindAll((EntityBehavior eb) => { return eb is EntityBehaviorHealth; })
-                .Cast<EntityBehaviorHealth>().ToList();
-
-            entity.Api.Logger.Debug($"[BSEBH] found {ebhList.Count} EBHealths on {entity.GetName()}");
-
-            foreach (EntityBehaviorHealth ebh in ebhList)
-            {
-                if (ebh != this)
-                {
-                    Type type = Traverse.Create(ebh).Field("onDamaged").GetType();
-
-                    entity.Api.Logger.Debug($"[BSEBH] onDamaged type: {type}");
-
-                    entity.RemoveBehavior(ebh);
-
-                    entity.Api.Logger.Debug($"[BSEBH] yeeted {entity.GetName()}'s vanilla EBHealth right outta here");
-                }
-                else
-                {
-                    entity.Api.Logger.Debug($"[BSEBH] hey this EBHealth on {entity.GetName()} is me");
-                }
-            }
-            //*/
         }
 
         public override void OnEntityReceiveDamage(DamageSource damageSource, ref float damage)
@@ -68,7 +34,15 @@ namespace BloodyStory
                 }
             } else
             {
-                entity.Api.Logger.Debug("[BSEBH] Failed to acquire onDamaged");
+                entity.Api.Logger.Debug("[BSEBH] Failed to acquire base onDamaged");
+            }
+
+            if (onDamagedPost != null)
+            {
+                foreach (OnDamagedDelegate dele in onDamagedPost.GetInvocationList())
+                {
+                    damage = dele(damage, damageSource);
+                }
             }
 
             if (damageSource.Type == EnumDamageType.Heal)

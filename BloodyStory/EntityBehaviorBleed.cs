@@ -86,12 +86,12 @@ namespace BloodyStory
             if (entity.World.Side == EnumAppSide.Server)
             {
                 IServerPlayer player = ((EntityPlayer)entity).Player as IServerPlayer;
-                EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
+                EntityBehaviorHealth_BS pHealth = entity.GetBehavior<EntityBehaviorHealth>() as EntityBehaviorHealth_BS;
 
                 if (entity.Api.ModLoader.GetMod("overhaullib") != null)
                 {
                     COCompat.AddCODamageEH(player, this);
-                    pHealth.onDamaged += (dmg, dmgSrc) =>
+                    pHealth.onDamagedPost += (dmg, dmgSrc) =>
                     {
                         if (dmgSrc.Type == EnumDamageType.BluntAttack
                             || dmgSrc.Type == EnumDamageType.SlashingAttack
@@ -101,7 +101,7 @@ namespace BloodyStory
                 }
                 else
                 {
-                    pHealth.onDamaged += (dmg, dmgSrc) => HandleDamage(player, dmg, dmgSrc);
+                    pHealth.onDamagedPost += (dmg, dmgSrc) => HandleDamage(player, dmg, dmgSrc);
                 }
             }
         }
