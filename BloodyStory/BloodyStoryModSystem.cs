@@ -32,6 +32,8 @@ namespace BloodyStory
         {
             base.StartPre(api);
 
+            DefaultEntityBehviors_Patch.api = api;
+
             harmony = new("bloodystory");
             harmony.PatchAll();
         }
@@ -47,7 +49,7 @@ namespace BloodyStory
                 .RegisterMessageType<BleedParticles>();
 
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
-            api.RegisterEntityBehaviorClass("health_bs", typeof(EntityBehaviorHealth_BS));
+            //api.RegisterEntityBehaviorClass("health_bs", typeof(EntityBehaviorHealth_BS));
 
             api.World.Config.SetFloat("playerHealthRegenSpeed", 0f); // this is probably fine
         }

@@ -16,14 +16,5 @@
     },
     "file": "game:entities/humanoid/player.json",
     "side": "Server"
-  },
-  {
-    "op": "add",
-    "path": "/server/behaviors/1",
-    "value": {
-      "code": "health_bs"
-    },
-    "file": "game:entities/humanoid/player.json",
-    "side": "Server"
   }
 ]
