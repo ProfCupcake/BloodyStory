@@ -19,7 +19,7 @@ namespace BloodyStory
 
         public override void OnEntityReceiveDamage(DamageSource damageSource, ref float damage)
         {
-            if (this.entity.World.Side == EnumAppSide.Client)
+            if (entity.World.Side == EnumAppSide.Client)
             {
                 return;
             }
@@ -34,7 +34,7 @@ namespace BloodyStory
                 }
             } else
             {
-                entity.Api.Logger.Debug("[BSEBH] Failed to acquire base onDamaged");
+                entity.Api.Logger.Debug($"[BSEBH] Failed to acquire base onDamaged for {entity.GetName()}");
             }
 
             if (onDamagedPost != null)
@@ -49,20 +49,20 @@ namespace BloodyStory
             {
                 if (damageSource.Source != EnumDamageSource.Revive)
                 {
-                    damage *= Math.Max(0f, this.entity.Stats.GetBlended("healingeffectivness"));
-                    this.Health = Math.Min(this.Health + damage, this.MaxHealth);
+                    damage *= Math.Max(0f, entity.Stats.GetBlended("healingeffectivness"));
+                    Health = Math.Min(Health + damage, MaxHealth);
                 }
                 else
                 {
-                    damage = Math.Min(damage, this.MaxHealth);
-                    damage *= Math.Max(0.33f, this.entity.Stats.GetBlended("healingeffectivness"));
-                    this.Health = damage;
+                    damage = Math.Min(damage, MaxHealth);
+                    damage *= Math.Max(0.33f, entity.Stats.GetBlended("healingeffectivness"));
+                    Health = damage;
                 }
-                this.entity.OnHurt(damageSource, damage);
-                this.UpdateMaxHealth();
+                entity.OnHurt(damageSource, damage);
+                UpdateMaxHealth();
                 return;
             }
-            if (!this.entity.Alive)
+            if (!entity.Alive)
             {
                 return;
             }
@@ -70,7 +70,7 @@ namespace BloodyStory
             {
                 return;
             }
-            EntityPlayer player = this.entity as EntityPlayer;
+            EntityPlayer player = entity as EntityPlayer;
             if (player != null)
             {
                 EntityPlayer otherPlayer = damageSource.GetCauseEntity() as EntityPlayer;
@@ -86,37 +86,35 @@ namespace BloodyStory
                         ItemStack itemstack = otherPlayer.Player.InventoryManager.ActiveHotbarSlot.Itemstack;
                         weapon = ((itemstack != null) ? itemstack.Collectible.Code.ToString() : null) ?? "hands";
                     }
-                    this.entity.Api.Logger.Audit("{0} at {1} got {2}/{3} damage {4} {5} by {6}", new object[]
+                    entity.Api.Logger.Audit("{0} at {1} got {2}/{3} damage {4} {5} by {6}", new object[]
                     {
-                player.Player.PlayerName,
-                this.entity.Pos.AsBlockPos,
-                damage,
-                damageBeforeArmor,
-                damageSource.Type.ToString().ToLowerInvariant(),
-                weapon,
-                otherPlayer.GetName()
+                        player.Player.PlayerName,
+                        entity.Pos.AsBlockPos,
+                        damage,
+                        damageBeforeArmor,
+                        damageSource.Type.ToString().ToLowerInvariant(),
+                        weapon,
+                        otherPlayer.GetName()
                     });
                 }
             }
-            this.Health -= damage;
-            this.entity.OnHurt(damageSource, damage);
-            this.UpdateMaxHealth();
-            if (this.Health <= 0f)
+            Health -= damage;
+            entity.OnHurt(damageSource, damage);
+            UpdateMaxHealth();
+            if (Health <= 0f)
             {
-                this.Health = 0f;
-                this.entity.Die(EnumDespawnReason.Death, damageSource);
+                Health = 0f;
+                entity.Die(EnumDespawnReason.Death, damageSource);
                 return;
             }
             if (damage > 1f)
             {
-                this.entity.AnimManager.StartAnimation("hurt");
+                entity.AnimManager.StartAnimation("hurt");
             }
             if (damageSource.Type != EnumDamageType.Heal)
             {
-                this.entity.PlayEntitySound("hurt", null, true, 24f);
+                entity.PlayEntitySound("hurt", null, true, 24f);
             }
-
-            entity.Api.Logger.Debug("woah check it out I logged [BSEBH]");
         }
     }
 }

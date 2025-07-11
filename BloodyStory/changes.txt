@@ -1,6 +1,6 @@
-- Added a keybind (B by default) that allows you to check your current bleed level or the player you are targeting
-- Added an option for the above, enabled by default, which causes it to give a vague description of the bleed level rather than precise numbers
-- 
+- Significant change to how damage is handled - mod now completely replaces vanilla health behavior
 
 TODO: 
-- handbook entry
+- separate damage type options
+- server config sharing rewrite
+- test if EBH change has broken unconscious compat
