@@ -43,7 +43,7 @@ namespace BloodyStory
             base.Start(api);
             this.api = api;
 
-            Config = new(api, "bloodystory.json", "bloodystory:config");
+            Config = new(api, "bloodystory");
             
             api.Network.RegisterUdpChannel(bloodParticleNetChannel)
                 .RegisterMessageType<BleedParticles>();

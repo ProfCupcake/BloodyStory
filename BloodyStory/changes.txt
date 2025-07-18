@@ -1,6 +1,6 @@
 - Significant change to how damage is handled - mod now completely replaces vanilla health behavior
+- Changes to server-client config sync; should hopefully be more reliable now
 
 TODO: 
 - separate damage type options
-- server config sharing rewrite
-- test if EBH change has broken unconscious compat
+/ test if EBH change has broken unconscious compat
