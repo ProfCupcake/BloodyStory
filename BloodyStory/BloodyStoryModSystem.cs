@@ -19,7 +19,7 @@ namespace BloodyStory
 
         Harmony harmony;
 
-        public static ConfigManager Config
+        public static ConfigManager<BloodyStoryModConfig> Config
         {
             get; private set;
         }
