@@ -86,12 +86,12 @@ namespace BloodyStory
             if (entity.World.Side == EnumAppSide.Server)
             {
                 IServerPlayer player = ((EntityPlayer)entity).Player as IServerPlayer;
-                EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
+                EntityBehaviorHealth_BS pHealth = entity.GetBehavior<EntityBehaviorHealth>() as EntityBehaviorHealth_BS;
 
                 if (entity.Api.ModLoader.GetMod("overhaullib") != null)
                 {
                     COCompat.AddCODamageEH(player, this);
-                    pHealth.onDamaged += (dmg, dmgSrc) =>
+                    pHealth.onDamagedPost += (dmg, dmgSrc) =>
                     {
                         if (dmgSrc.Type == EnumDamageType.BluntAttack
                             || dmgSrc.Type == EnumDamageType.SlashingAttack
@@ -101,7 +101,7 @@ namespace BloodyStory
                 }
                 else
                 {
-                    pHealth.onDamaged += (dmg, dmgSrc) => HandleDamage(player, dmg, dmgSrc);
+                    pHealth.onDamagedPost += (dmg, dmgSrc) => HandleDamage(player, dmg, dmgSrc);
                 }
             }
         }
@@ -286,12 +286,12 @@ namespace BloodyStory
 
             SyncedTreeAttribute playerAttributes = byPlayer.Entity.WatchedAttributes;
 
+            if (dmgSource.Source == EnumDamageSource.Void) return damage;
+
             if (dmgSource.Type != EnumDamageType.Heal)
             {
                 regenBoost = 0;
             }
-
-            if (dmgSource.Source == EnumDamageSource.Void) return damage;
 
             switch (dmgSource.Type) // possible alternate implementation: dictionary, with dmg type as keys and functions as values?
             {
@@ -308,22 +308,16 @@ namespace BloodyStory
                     damage = 0;
                     break;
                 case EnumDamageType.BluntAttack:
+                    ApplyBleed(ref damage, modConfig.bleedDamageMultiplier_blunt, modConfig.directDamageMultiplier_blunt, dmgSource, byPlayer);
+                    break;
                 case EnumDamageType.SlashingAttack:
+                    ApplyBleed(ref damage, modConfig.bleedDamageMultiplier_slash, modConfig.directDamageMultiplier_slash, dmgSource, byPlayer);
+                    break;
                 case EnumDamageType.PiercingAttack:
-                    float bleedDamage = damage;
-                    bleedDamage *= modConfig.bleedDamageMultiplier;
-                    bleedLevel += bleedDamage;
-                    lastHit = dmgSource;
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-gained", new object[] { Math.Round(damage * modConfig.bleedDamageMultiplier / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
-                    ReceiveDamageReplacer(byPlayer, dmgSource, damage);
-                    damage *= modConfig.directDamageMultiplier;
+                    ApplyBleed(ref damage, modConfig.bleedDamageMultiplier_pierce, modConfig.directDamageMultiplier_pierce, dmgSource, byPlayer);
                     break;
                 case EnumDamageType.Poison:
-                    bleedLevel += damage;
-                    lastHit = dmgSource;
-                    byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-gained", new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
-                    ReceiveDamageReplacer(byPlayer, dmgSource, damage);
-                    damage = 0;
+                    ApplyBleed(ref damage, modConfig.bleedDamageMultiplier_poison, modConfig.directDamageMultiplier_poison, dmgSource, byPlayer);
                     break;
                 case EnumDamageType.Gravity: break;
                 case EnumDamageType.Fire:
@@ -342,6 +336,20 @@ namespace BloodyStory
             }
 
             return damage;
+        }
+
+        internal void ApplyBleed(ref float damage, float bleedDamageMult, float directDamageMult, DamageSource dmgSource, IServerPlayer byPlayer)
+        {
+            float bleedDamage = damage;
+            bleedDamage *= bleedDamageMult;
+            bleedLevel += bleedDamage;
+
+            lastHit = dmgSource;
+
+            byPlayer.SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-gained", new object[] { Math.Round(bleedDamage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
+            ReceiveDamageReplacer(byPlayer, dmgSource, bleedDamage);
+
+            damage *= directDamageMult;
         }
 
         // Handles knockback, hurt animation, etc.

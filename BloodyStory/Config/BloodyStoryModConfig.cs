@@ -2,7 +2,6 @@
 
 namespace BloodyStory.Config
 {
-    [ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
     public class BloodyStoryModConfig // TODO: proper config documentation
     {
         public double baseRegen = 0.02f; // hp regen per second
@@ -16,8 +15,17 @@ namespace BloodyStory.Config
         public int regenSitDelay = 5000; // delay before the sit boost is applied, in ms
         public double regenSitMultiplier = 3f; // multiplier for regen when sitting
 
-        public float bleedDamageMultiplier = 1f; // multiplier for damage taken as bleed
-        public float directDamageMultiplier = 0f; // multiplier for damage allowed through after bleed is applied
+        public float bleedDamageMultiplier_blunt = 1f; // multiplier for damage taken as bleed, from blunt attacks
+        public float directDamageMultiplier_blunt = 0f; // multiplier for damage allowed through after bleed is applied, from blunt attacks
+
+        public float bleedDamageMultiplier_slash = 1f; // as above, for slash attacks
+        public float directDamageMultiplier_slash = 0f;
+
+        public float bleedDamageMultiplier_pierce = 1f; // as above, for pierce attacks
+        public float directDamageMultiplier_pierce = 0f;
+
+        public float bleedDamageMultiplier_poison = 1f; // as above, for poison
+        public float directDamageMultiplier_poison = 0f;
 
         public double bleedHealRate = 0.15f; // natural bleeding reduction
         public double bleedQuotient = 12f; // quotient for hp loss to bleed

@@ -1,4 +1,5 @@
 ﻿using BloodyStory.Config;
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using Vintagestory.API.Client;
@@ -10,13 +11,15 @@ using Vintagestory.API.Server;
 
 namespace BloodyStory
 {
-    public class BloodyStoryModSystem : ModSystem // rewrite all of this as an entitybehaviour at some point
+    public class BloodyStoryModSystem : ModSystem
     {
         public const string bloodParticleNetChannel = "bloodystory:particles";
         public const string bleedCheckHotkeyCode = "bleedCheck";
         public BloodyStoryModConfig modConfig => Config.modConfig;
 
-        public static ConfigManager Config
+        Harmony harmony;
+
+        public static ConfigManager<BloodyStoryModConfig> Config
         {
             get; private set;
         }
@@ -25,17 +28,28 @@ namespace BloodyStory
         ICoreClientAPI capi;
         ICoreServerAPI sapi;
 
+        public override void StartPre(ICoreAPI api)
+        {
+            base.StartPre(api);
+
+            DefaultEntityBehviors_Patch.api = api;
+
+            harmony = new("bloodystory");
+            harmony.PatchAll();
+        }
+
         public override void Start(ICoreAPI api)
         {
             base.Start(api);
             this.api = api;
 
-            Config = new(api, "bloodystory.json", "bloodystory:config");
+            Config = new(api, "bloodystory");
             
             api.Network.RegisterUdpChannel(bloodParticleNetChannel)
                 .RegisterMessageType<BleedParticles>();
 
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
+            //api.RegisterEntityBehaviorClass("health_bs", typeof(EntityBehaviorHealth_BS));
 
             api.World.Config.SetFloat("playerHealthRegenSpeed", 0f); // this is probably fine
         }
@@ -43,6 +57,8 @@ namespace BloodyStory
         public override void Dispose()
         {
             base.Dispose();
+
+            harmony.UnpatchAll("bloodystory");
         }
 
         public override void StartServerSide(ICoreServerAPI api)
