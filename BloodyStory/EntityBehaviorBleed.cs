@@ -1,6 +1,8 @@
 ﻿using BloodyStory.Config;
 using BloodyStory.Lib;
 using System;
+using System.Net.Sockets;
+using System.Numerics;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -62,22 +64,7 @@ namespace BloodyStory
             return "bleed";
         }
 
-        public override void Initialize(EntityProperties properties, JsonObject attributes)
-        {
-            base.Initialize(properties, attributes);
-
-            switch (entity.Api.Side)
-            {
-                case EnumAppSide.Server:
-                    ((ICoreServerAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel)
-                    .SetMessageHandler<BleedParticles>(ServerSpawnParticles);
-                    break;
-                case EnumAppSide.Client:
-                    ((ICoreClientAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel)
-                    .SetMessageHandler<BleedParticles>(ClientSpawnParticles);
-                    break;
-            }
-        }
+        private bool initialised = false;
 
         public override void AfterInitialized(bool onFirstSpawn)
         {
@@ -85,29 +72,33 @@ namespace BloodyStory
 
             if (entity.World.Side == EnumAppSide.Server)
             {
-                IServerPlayer player = ((EntityPlayer)entity).Player as IServerPlayer;
                 EntityBehaviorHealth_BS pHealth = entity.GetBehavior<EntityBehaviorHealth>() as EntityBehaviorHealth_BS;
 
                 if (entity.Api.ModLoader.GetMod("overhaullib") != null)
                 {
-                    COCompat.AddCODamageEH(player, this);
-                    pHealth.onDamagedPost += (dmg, dmgSrc) =>
+                    if (entity is EntityPlayer)
                     {
-                        if (dmgSrc.Type == EnumDamageType.BluntAttack
-                            || dmgSrc.Type == EnumDamageType.SlashingAttack
-                            || dmgSrc.Type == EnumDamageType.PiercingAttack) return dmg;
-                        return HandleDamage(dmg, dmgSrc); // bit jank, might change later, idk
-                    };
+                        COCompat.AddCODamageEH_Player((EntityPlayer)entity, this);
+                    } else
+                    {
+                        COCompat.AddCODamageEH_NPC(entity, this);
+                    }
                 }
                 else
                 {
-                    pHealth.onDamagedPost += (dmg, dmgSrc) => HandleDamage(dmg, dmgSrc);
+                    pHealth.onDamagedPost += HandleDamage;
                 }
             }
+
+            initialised = true;
         }
 
         public override void OnGameTick(float deltaTime)
         {
+            if (entity == null || !entity.Alive) return;
+
+            if (modConfig == null) return;
+
             switch (entity.World.Side)
             {
                 case EnumAppSide.Server:
@@ -126,7 +117,7 @@ namespace BloodyStory
                 if (pauseBleedParticles) return;
                 if (t > modConfig.bloodParticleDelay)
                 {
-                    SpawnBloodParticles();
+                    SpawnBloodParticles_Player();
                     t = 0;
                 }
                 else t += dt;
@@ -135,11 +126,14 @@ namespace BloodyStory
 
         private void ServerTick(float dtr)
         {
-            if (entity == null || !entity.Alive || pauseBleedProcess) return;
+            if (pauseBleedProcess) return;
 
-            if (((EntityPlayer)entity).Player is not IServerPlayer serverPlayer || serverPlayer.ConnectionState != EnumClientState.Playing) return;
+            if (entity is EntityPlayer)
+            {
+                IServerPlayer serverPlayer = (IServerPlayer)((EntityPlayer)entity).Player;
 
-            if (modConfig == null) return;
+                if (serverPlayer.ConnectionState != EnumClientState.Playing) return;
+            }
 
             float dt = dtr * entity.World.Calendar.CalendarSpeedMul * entity.World.Calendar.SpeedOfTime; // realtime -> game time
             dt /= 30; // 24 hrs -> 48 mins
@@ -173,43 +167,48 @@ namespace BloodyStory
                 BleedOut();
             }
 
-            // Note: regen boost is also included in this now
-            // I dunno if that's a good thing or not
-            if (beforeHealth < pHealth.MaxHealth || bleedLevel > 0)
+            if (pHunger != null)
             {
-                if (beforeHealth == pHealth.MaxHealth && pHealth.Health == pHealth.MaxHealth)
+                // Note: regen boost is also included in this now
+                // I dunno if that's a good thing or not
+                if (beforeHealth < pHealth.MaxHealth || bleedLevel > 0)
                 {
-                    // bleed rate > 0, but < regen, and is capping at max health
-                    // therefore, total health regen equals amount of bleed this tick
-                    hungerConsumption += (float)(CalculateDmgCum(dt, bleedDmg, 0) * modConfig.satietyConsumption);
-                }
-                else/* if (pHealth.Health == pHealth.MaxHealth)
+                    if (beforeHealth == pHealth.MaxHealth && pHealth.Health == pHealth.MaxHealth)
+                    {
+                        // bleed rate > 0, but < regen, and is capping at max health
+                        // therefore, total health regen equals amount of bleed this tick
+                        hungerConsumption += (float)(CalculateDmgCum(dt, bleedDmg, 0) * modConfig.satietyConsumption);
+                    }
+                    else/* if (pHealth.Health == pHealth.MaxHealth)
                 {
                     // we managed to regen to full health at some point this tick
                     // figure out when we hit full health, then how much regen happened in that time
                     // (possibly ignore this edge case?)
                     // ... yes, I am going to ignore this edge case because the formula is stupid long lmao
                 } else //*/
-                {
-                    // simplest situation: we have been doing health regen this whole tick, so just calculate total health regen
-                    hungerConsumption += (float)(modConfig.satietyConsumption * regenRate * dt);
-                    hungerConsumption += (float)Math.Min(dt * modConfig.regenBoostRate, regenBoost) * modConfig.satietyConsumption;
+                    {
+                        // simplest situation: we have been doing health regen this whole tick, so just calculate total health regen
+                        hungerConsumption += (float)(modConfig.satietyConsumption * regenRate * dt);
+                        hungerConsumption += (float)Math.Min(dt * modConfig.regenBoostRate, regenBoost) * modConfig.satietyConsumption;
+                    }
                 }
+                hungerTickTimer += dtr;
+                if (hungerTickTimer > 1f)
+                    if (hungerConsumption > 0)
+                    {
+                        pHunger.ConsumeSaturation(hungerConsumption);
+                        hungerTickTimer = 0f;
+                        hungerConsumption = 0f;
+                    }
             }
-            hungerTickTimer += dtr;
-            if (hungerTickTimer > 1f)
-                if (hungerConsumption > 0)
-                {
-                    pHunger.ConsumeSaturation(hungerConsumption);
-                    hungerTickTimer = 0f;
-                    hungerConsumption = 0f;
-                }
 
             if (regenBoost != 0)
             {
                 regenBoost -= modConfig.regenBoostRate * dt;
                 if (regenBoost < 0) regenBoost = 0;
             }
+
+            if (entity is not EntityPlayer) SpawnBloodParticles_NPC();
         }
 
         private void BleedOut()
@@ -230,12 +229,19 @@ namespace BloodyStory
         public double GetBleedRate(bool includeSneak = true)
         {
             double quot = modConfig.bleedQuotient;
-            if (includeSneak && ((EntityPlayer)entity).Controls.Sneak) quot *= modConfig.sneakMultiplier;
+            
+            if (entity is EntityPlayer)
+            {
+                if (includeSneak && ((EntityPlayer)entity).Controls.Sneak) quot *= modConfig.sneakMultiplier;
+            }
+
             return bleedLevel / quot;
         }
 
         public double GetRegenRate(bool includeBoost = false)
         {
+            if (entity is not EntityPlayer) return modConfig.baseRegen;
+
             if (entity.Api.Side == EnumAppSide.Client)
             {
                 if (includeBoost && regenBoost > 0)
@@ -252,6 +258,7 @@ namespace BloodyStory
 
             double bleedRate = bleedLevel;
             double regenRate = pHunger.Saturation > 0 ? modConfig.baseRegen + modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth) : 0;
+
             if (bleedRate <= 0)
             {
                 if (((EntityPlayer)entity).MountedOn is not null and BlockEntityBed)
@@ -271,6 +278,7 @@ namespace BloodyStory
                 }
                 else SitStartTime = 0;
             }
+
             regenRate *= Interpolate(modConfig.minSatietyMultiplier, modConfig.maxSatietyMultiplier, pHunger.Saturation / pHunger.MaxSaturation);
 
             regenRate_clientSync = regenRate; // TODO: fix this awful hack solution
@@ -426,26 +434,32 @@ namespace BloodyStory
         {
             double regenBoostAdd = saturation / modConfig.regenBoostQuotient;
             regenBoost += regenBoostAdd;
-            ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-regenboost-gained", new object[] { Math.Round(regenBoostAdd, 1) }), EnumChatType.Notification);
+            if (entity is EntityPlayer)
+            {
+                ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-regenboost-gained", new object[] { Math.Round(regenBoostAdd, 1) }), EnumChatType.Notification);
+            }
         }
 
-        void SpawnBloodParticles()
+        void SpawnBloodParticles_Player()
         {
-            EntityPlayer playerEntity = entity as EntityPlayer;
-
             double bleedAmount = bleedLevel;
-            bleedAmount /= playerEntity.Controls.Sneak ? modConfig.sneakMultiplier : 1;
             bleedAmount *= modConfig.bloodParticleMultiplier;
-            double bloodHeight = playerEntity.LocalEyePos.Y / 2;
 
-            float playerYaw = playerEntity.Pos.Yaw;
-            playerYaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
+            if (entity is EntityPlayer)
+            {
+                EntityPlayer playerEntity = entity as EntityPlayer;
+                bleedAmount /= playerEntity.Controls.Sneak ? modConfig.sneakMultiplier : 1;
+            }
+            double bloodHeight = entity.LocalEyePos.Y / 2;
 
-            float posOffset_x = (float)(0.2f * Math.Cos(playerYaw + Math.PI / 2));
-            float posOffset_y = (float)(-0.2f * Math.Sin(playerYaw + Math.PI / 2));
+            float yaw = entity.Pos.Yaw;
+            yaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
+
+            float posOffset_x = (float)(0.2f * Math.Cos(yaw + Math.PI / 2));
+            float posOffset_y = (float)(-0.2f * Math.Sin(yaw + Math.PI / 2));
             BleedParticles bloodParticleProperties = new();
             bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
-            bloodParticleProperties.basePos = playerEntity.Pos.XYZ.Add(-0.2f * Math.Cos(playerYaw + Math.PI / 2), bloodHeight, 0.2f * Math.Sin(playerYaw + Math.PI / 2));
+            bloodParticleProperties.basePos = entity.Pos.XYZ.Add(-0.2f * Math.Cos(yaw + Math.PI / 2), bloodHeight, 0.2f * Math.Sin(yaw + Math.PI / 2));
             bloodParticleProperties.PosOffset = new NatFloat[]
             {
                 NatFloat.createUniform(posOffset_x, posOffset_x),
@@ -454,23 +468,50 @@ namespace BloodyStory
             };
             bloodParticleProperties.Velocity = new NatFloat[]
             {
-                NatFloat.createUniform((float)(1.05f * Math.Cos(playerYaw) + playerEntity.Pos.Motion.X), 0.35f * (float)Math.Cos(playerYaw)),
-                NatFloat.createUniform(0.175f + (float)playerEntity.Pos.Motion.Y, 0.5025f),
-                NatFloat.createUniform((float)(-1.05f * Math.Sin(playerYaw) + playerEntity.Pos.Motion.Z), -0.35f * (float)Math.Sin(playerYaw))
+                NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.Pos.Motion.X), 0.35f * (float)Math.Cos(yaw)),
+                NatFloat.createUniform(0.175f + (float)entity.Pos.Motion.Y, 0.5025f),
+                NatFloat.createUniform((float)(-1.05f * Math.Sin(yaw) + entity.Pos.Motion.Z), -0.35f * (float)Math.Sin(yaw))
             };
 
+            entity.Api.Logger.Event("[BS-particles] client sending particles packet");
             ((ICoreClientAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).SendPacket(bloodParticleProperties);
-            ClientSpawnParticles(bloodParticleProperties);
         }
-
-        private void ServerSpawnParticles(IServerPlayer fromPlayer, BleedParticles packet)
+        
+        void SpawnBloodParticles_NPC()
         {
-            ((ICoreServerAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).BroadcastPacket(packet, fromPlayer);
-        }
+            double bleedAmount = bleedLevel;
+            bleedAmount *= modConfig.bloodParticleMultiplier;
 
-        private void ClientSpawnParticles(BleedParticles packet)
-        {
-            entity.World.SpawnParticles(packet);
+            if (entity is EntityPlayer)
+            {
+                EntityPlayer playerEntity = entity as EntityPlayer;
+                bleedAmount /= playerEntity.Controls.Sneak ? modConfig.sneakMultiplier : 1;
+            }
+            double bloodHeight = entity.LocalEyePos.Y / 2;
+
+            float yaw = entity.Pos.Yaw;
+            yaw -= (float)(Math.PI / 2); 
+
+            float posOffset_x = (float)(0.2f * Math.Cos(yaw + Math.PI / 2));
+            float posOffset_y = (float)(-0.2f * Math.Sin(yaw + Math.PI / 2));
+            BleedParticles bloodParticleProperties = new();
+            bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
+            bloodParticleProperties.basePos = entity.Pos.XYZ.Add(-0.2f * Math.Cos(yaw + Math.PI / 2), bloodHeight, 0.2f * Math.Sin(yaw + Math.PI / 2));
+            bloodParticleProperties.PosOffset = new NatFloat[]
+            {
+                NatFloat.createUniform(posOffset_x, posOffset_x),
+                NatFloat.createUniform(0.2f,0.2f),
+                NatFloat.createUniform(posOffset_y, posOffset_y)
+            };
+            bloodParticleProperties.Velocity = new NatFloat[]
+            {
+                NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.Pos.Motion.X), 0.35f * (float)Math.Cos(yaw)),
+                NatFloat.createUniform(0.175f + (float)entity.Pos.Motion.Y, 0.5025f),
+                NatFloat.createUniform((float)(-1.05f * Math.Sin(yaw) + entity.Pos.Motion.Z), -0.35f * (float)Math.Sin(yaw))
+            };
+
+            entity.Api.Logger.Event("[BS-particles] server broadcasting NPC particles packet");
+            ((ICoreServerAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).BroadcastPacket(bloodParticleProperties);
         }
     }
 }

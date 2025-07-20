@@ -8,6 +8,7 @@ using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
+using Vintagestory.GameContent;
 
 namespace BloodyStory
 {
@@ -38,10 +39,25 @@ namespace BloodyStory
             harmony.PatchAll();
         }
 
+        private void OnEntityLoaded(Entity entity)
+        {
+            if (entity.GetBehavior<EntityBehaviorHealth>() is not null)
+            {
+                if (entity.GetBehavior<EntityBehaviorBleed>() is null)
+                {
+                    EntityBehaviorBleed ebb = new EntityBehaviorBleed(entity);
+                    entity.AddBehavior(ebb);
+                    ebb.AfterInitialized(false);
+                }
+            }
+        }
+
         public override void Start(ICoreAPI api)
         {
             base.Start(api);
             this.api = api;
+
+            api.Event.OnEntityLoaded += OnEntityLoaded;
 
             Config = new(api, "bloodystory");
             
@@ -98,6 +114,21 @@ namespace BloodyStory
                 .HandleWith(ToggleBleedParticlesCommand);
 
             sapi.Event.PlayerRespawn += OnPlayerRespawn;
+
+            sapi.Network.GetUdpChannel(bloodParticleNetChannel)
+                    .SetMessageHandler<BleedParticles>(ServerSpawnParticles_Player);
+        }
+
+        private void ServerSpawnParticles_Player(IServerPlayer fromPlayer, BleedParticles packet)
+        {
+            api.Logger.Event("[BS-particles] server received player particles packet, broadcasting to clients");
+            sapi.Network.GetUdpChannel(bloodParticleNetChannel).BroadcastPacket(packet);
+        }
+
+        private void ClientSpawnParticles(BleedParticles packet)
+        {
+            api.Logger.Event("[BS-particles] client received particles packet");
+            api.World.SpawnParticles(packet);
         }
 
         private TextCommandResult ToggleBleedingCommand(TextCommandCallingArgs args)
@@ -197,6 +228,9 @@ namespace BloodyStory
             capi.Input.RegisterHotKey(bleedCheckHotkeyCode, "Check bleeding", GlKeys.B, HotkeyType.CharacterControls); // TODO: localisation
 
             capi.Input.SetHotKeyHandler(bleedCheckHotkeyCode, bleedCheck);
+
+            capi.Network.GetUdpChannel(bloodParticleNetChannel)
+                    .SetMessageHandler<BleedParticles>(ClientSpawnParticles);
         }
 
         private bool bleedCheck(KeyCombination kc)
