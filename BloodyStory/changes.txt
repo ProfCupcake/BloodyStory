@@ -1,5 +1,0 @@
-- Significant change to how damage is handled - mod now completely replaces vanilla health behavior
-- Changes to server-client config sync; should hopefully be more reliable now
-- Separated the 4 damage types that added bleed into their own config options; set to the same values by default
-
-** config changes this update - regenerate your config **
