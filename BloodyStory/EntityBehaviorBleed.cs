@@ -388,20 +388,36 @@ namespace BloodyStory
 
                 if (dmgSource.GetSourcePosition() != null)
                 {
-                    Vec3d dir = entity.SidedPos.XYZ - dmgSource.GetSourcePosition().Normalize();
-                    dir.Y = 0.699999988079071;
+                    bool verticalAttack = false;
+                    double attackYaw;
+                    double attackPitch;
+                    if (dmgSource.GetAttackAngle(entity.Pos.XYZ, out attackYaw, out attackPitch))
+                    {
+                        verticalAttack = Math.Abs(attackPitch) > 1.3962633609771729 || Math.Abs(attackPitch) < 0.1745329201221466;
+                    }
+                    Vec3d dir = (entity.SidedPos.XYZ - dmgSource.GetSourcePosition()).Normalize();
+                    if (verticalAttack)
+                    {
+                        dir.Y = 0.05000000074505806;
+                        dir.Normalize();
+                    }
+                    else
+                    {
+                        dir.Y = 0.699999988079071;
+                    }
+                    dir.Y /= (double)dmgSource.YDirKnockbackDiv;
                     float factor = dmgSource.KnockbackStrength * GameMath.Clamp((1f - entity.Properties.KnockbackResistance) / 10f, 0f, 1f);
-                    playerAttributes.SetFloat("onHurtDir", (float)Math.Atan2(dir.X, dir.Z));
-                    playerAttributes.SetDouble("kbdirX", dir.X * (double)factor);
-                    playerAttributes.SetDouble("kbdirY", dir.Y * (double)factor);
-                    playerAttributes.SetDouble("kbdirZ", dir.Z * (double)factor);
+                    entity.WatchedAttributes.SetFloat("onHurtDir", (float)Math.Atan2(dir.X, dir.Z));
+                    entity.WatchedAttributes.SetDouble("kbdirX", dir.X * (double)factor);
+                    entity.WatchedAttributes.SetDouble("kbdirY", dir.Y * (double)factor);
+                    entity.WatchedAttributes.SetDouble("kbdirZ", dir.Z * (double)factor);
                 }
                 else
                 {
-                    playerAttributes.SetDouble("kbdirX", 0);
-                    playerAttributes.SetDouble("kbdirY", 0);
-                    playerAttributes.SetDouble("kbdirZ", 0);
-                    playerAttributes.SetFloat("onHurtDir", -999f);
+                    entity.WatchedAttributes.SetDouble("kbdirX", 0.0);
+                    entity.WatchedAttributes.SetDouble("kbdirY", 0.0);
+                    entity.WatchedAttributes.SetDouble("kbdirZ", 0.0);
+                    entity.WatchedAttributes.SetFloat("onHurtDir", -999f);
                 }
             }
         }
