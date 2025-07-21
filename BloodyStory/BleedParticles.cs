@@ -30,9 +30,9 @@ namespace BloodyStory
         {
             HsvaColor = new NatFloat[]
                 {
-                    NatFloat.Zero,
-                    NatFloat.createUniform(200f,0f),
-                    NatFloat.createUniform(200f,0f),
+                    NatFloat.createUniform(2f, 0f),
+                    NatFloat.createUniform(255f,0f),
+                    NatFloat.createUniform(125f,0f),
                     NatFloat.createUniform(255f,0f)
                 };
             LifeLength = NatFloat.createUniform(30f, 10f);
@@ -52,9 +52,9 @@ namespace BloodyStory
                     },
                     HsvaColor = new NatFloat[]
                     {
-                        NatFloat.Zero,
+                        NatFloat.createUniform(2f, 0f),
                         NatFloat.createUniform(255f,0f),
-                        NatFloat.createUniform(255f,0f),
+                        NatFloat.createUniform(125f,0f),
                         NatFloat.createUniform(255f,0f)
                     },
                     PosOffset = new NatFloat[]
@@ -81,10 +81,12 @@ namespace BloodyStory
 
             if (entity is not null)
             {
+                float yaw = entity.SidedPos.Yaw - (float)(Math.PI / 2);
+
                 basePos = entity.SidedPos.XYZ.Add(
-                    -0.2f * Math.Cos(entity.SidedPos.Yaw + Math.PI / 2),
+                    -0.2f * Math.Cos(yaw + Math.PI / 2),
                     entity.LocalEyePos.Y / 2,
-                    0.2f * Math.Sin(entity.SidedPos.Yaw + Math.PI / 2));
+                    0.2f * Math.Sin(yaw + Math.PI / 2));
             }
         }
     }
