@@ -456,12 +456,12 @@ namespace BloodyStory
             float posOffset_y = (float)(-0.2f * Math.Sin(yaw + Math.PI / 2));
             BleedParticles bloodParticleProperties = new(entity.EntityId, entity.Api);
             bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
-            bloodParticleProperties.PosOffset = new NatFloat[]
+            /*bloodParticleProperties.PosOffset = new NatFloat[]
             {
                 NatFloat.createUniform(posOffset_x, posOffset_x),
                 NatFloat.createUniform(0.2f,0.2f),
                 NatFloat.createUniform(posOffset_y, posOffset_y)
-            };
+            };*/
             bloodParticleProperties.Velocity = new NatFloat[]
             {
                 NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.SidedPos.Motion.X), 0.35f * (float)Math.Cos(yaw)),
@@ -488,12 +488,12 @@ namespace BloodyStory
             float posOffset_y = (float)(-0.2f * Math.Sin(yaw + Math.PI / 2));
             BleedParticles bloodParticleProperties = new(entity.EntityId, entity.Api);
             bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
-            bloodParticleProperties.PosOffset = new NatFloat[]
+            /*bloodParticleProperties.PosOffset = new NatFloat[]
             {
                 NatFloat.createUniform(posOffset_x, posOffset_x),
                 NatFloat.createUniform(0.2f,0.2f),
                 NatFloat.createUniform(posOffset_y, posOffset_y)
-            };
+            };*/
             bloodParticleProperties.Velocity = new NatFloat[]
             {
                 NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.SidedPos.Motion.X), 0.35f * (float)Math.Cos(yaw)),

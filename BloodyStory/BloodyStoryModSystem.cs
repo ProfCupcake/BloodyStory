@@ -42,14 +42,16 @@ namespace BloodyStory
 
         private void OnEntityLoaded(Entity entity)
         {
-            if (entity.GetBehavior<EntityBehaviorHealth>() is not null)
+            if (modConfig.allShallBleed)
             {
-                if (entity.GetBehavior<EntityBehaviorBleed>() is null)
+                if (entity.GetBehavior<EntityBehaviorHealth>() is not null)
                 {
-                    EntityBehaviorBleed ebb = new EntityBehaviorBleed(entity);
-                    entity.AddBehavior(ebb);
-                    ebb.AfterInitialized(false);
-                    api.Logger.Event($"[BS-allbleed] Added bleed EB to {entity.GetName()}");
+                    if (entity.GetBehavior<EntityBehaviorBleed>() is null)
+                    {
+                        EntityBehaviorBleed ebb = new EntityBehaviorBleed(entity);
+                        entity.AddBehavior(ebb);
+                        ebb.AfterInitialized(false);
+                    }
                 }
             }
         }

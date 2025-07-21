@@ -51,5 +51,7 @@ namespace BloodyStory.Config
         public float bleedRating_Minor = 3; // as above, for "Minor"
         public float bleedRating_Moderate = 6; // as above, for "Moderate"
         public float bleedRating_Severe = 12; // as above, for "Severe"; bleed rates above this will be rated "Extreme"
+
+        public bool allShallBleed = false; // if true, adds bleeding to all creatures in the world, not just players
     }
 }

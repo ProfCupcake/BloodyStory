@@ -83,10 +83,31 @@ namespace BloodyStory
             {
                 float yaw = entity.SidedPos.Yaw - (float)(Math.PI / 2);
 
+                basePos = entity.SidedPos.XYZ.AddCopy(entity.CollisionBox.Center).Add(-0.1f, -0.1f, -0.1f);
+
+                PosOffset = new NatFloat[]
+                {
+                    NatFloat.createUniform(0.2f, 0.2f),
+                    NatFloat.createUniform(0.2f, 0.2f),
+                    NatFloat.createUniform(0.2f, 0.2f)
+                };
+
+                /*
+                float posOffset_x = (float)(entity.CollisionBox.XSize * Math.Cos(yaw + Math.PI / 2)) / 2;
+                float posOffset_y = (float)(-entity.CollisionBox.ZSize * Math.Sin(yaw + Math.PI / 2)) / 2;
+                
+
                 basePos = entity.SidedPos.XYZ.Add(
-                    -0.2f * Math.Cos(yaw + Math.PI / 2),
+                    entity.CollisionBox.MinX * Math.Cos(yaw + Math.PI / 2) / 2,
                     entity.LocalEyePos.Y / 2,
-                    0.2f * Math.Sin(yaw + Math.PI / 2));
+                    entity.CollisionBox.MinZ * Math.Sin(yaw + Math.PI / 2) / 2);
+
+                PosOffset = new NatFloat[]
+                {
+                    NatFloat.createUniform(posOffset_x, posOffset_x),
+                    NatFloat.createUniform(0.2f,0.2f),
+                    NatFloat.createUniform(posOffset_y, posOffset_y)
+                };*/
             }
         }
     }
