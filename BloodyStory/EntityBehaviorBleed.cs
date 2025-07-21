@@ -208,7 +208,10 @@ namespace BloodyStory
                 if (regenBoost < 0) regenBoost = 0;
             }
 
-            if (entity is not EntityPlayer) SpawnBloodParticles_NPC();
+            if (entity is not EntityPlayer && bleedLevel > 0)
+            {
+                SpawnBloodParticles_NPC();
+            }
         }
 
         private void BleedOut()
@@ -444,22 +447,15 @@ namespace BloodyStory
         {
             double bleedAmount = bleedLevel;
             bleedAmount *= modConfig.bloodParticleMultiplier;
+            bleedAmount /= ((EntityPlayer)entity).Controls.Sneak ? modConfig.sneakMultiplier : 1;
 
-            if (entity is EntityPlayer)
-            {
-                EntityPlayer playerEntity = entity as EntityPlayer;
-                bleedAmount /= playerEntity.Controls.Sneak ? modConfig.sneakMultiplier : 1;
-            }
-            double bloodHeight = entity.LocalEyePos.Y / 2;
-
-            float yaw = entity.Pos.Yaw;
+            float yaw = entity.SidedPos.Yaw;
             yaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
 
             float posOffset_x = (float)(0.2f * Math.Cos(yaw + Math.PI / 2));
             float posOffset_y = (float)(-0.2f * Math.Sin(yaw + Math.PI / 2));
-            BleedParticles bloodParticleProperties = new();
+            BleedParticles bloodParticleProperties = new(entity.EntityId, entity.Api);
             bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
-            bloodParticleProperties.basePos = entity.Pos.XYZ.Add(-0.2f * Math.Cos(yaw + Math.PI / 2), bloodHeight, 0.2f * Math.Sin(yaw + Math.PI / 2));
             bloodParticleProperties.PosOffset = new NatFloat[]
             {
                 NatFloat.createUniform(posOffset_x, posOffset_x),
@@ -468,13 +464,16 @@ namespace BloodyStory
             };
             bloodParticleProperties.Velocity = new NatFloat[]
             {
-                NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.Pos.Motion.X), 0.35f * (float)Math.Cos(yaw)),
-                NatFloat.createUniform(0.175f + (float)entity.Pos.Motion.Y, 0.5025f),
-                NatFloat.createUniform((float)(-1.05f * Math.Sin(yaw) + entity.Pos.Motion.Z), -0.35f * (float)Math.Sin(yaw))
+                NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.SidedPos.Motion.X), 0.35f * (float)Math.Cos(yaw)),
+                NatFloat.createUniform(0.175f + (float)entity.SidedPos.Motion.Y, 0.5025f),
+                NatFloat.createUniform((float)(-1.05f * Math.Sin(yaw) + entity.SidedPos.Motion.Z), -0.35f * (float)Math.Sin(yaw))
             };
 
-            entity.Api.Logger.Event("[BS-particles] client sending particles packet");
+            bloodParticleProperties.Async = true;
             ((ICoreClientAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).SendPacket(bloodParticleProperties);
+
+            bloodParticleProperties.Async = false;
+            entity.Api.World.SpawnParticles(bloodParticleProperties);
         }
         
         void SpawnBloodParticles_NPC()
@@ -482,21 +481,13 @@ namespace BloodyStory
             double bleedAmount = bleedLevel;
             bleedAmount *= modConfig.bloodParticleMultiplier;
 
-            if (entity is EntityPlayer)
-            {
-                EntityPlayer playerEntity = entity as EntityPlayer;
-                bleedAmount /= playerEntity.Controls.Sneak ? modConfig.sneakMultiplier : 1;
-            }
-            double bloodHeight = entity.LocalEyePos.Y / 2;
-
-            float yaw = entity.Pos.Yaw;
+            float yaw = entity.SidedPos.Yaw;
             yaw -= (float)(Math.PI / 2); 
 
             float posOffset_x = (float)(0.2f * Math.Cos(yaw + Math.PI / 2));
             float posOffset_y = (float)(-0.2f * Math.Sin(yaw + Math.PI / 2));
-            BleedParticles bloodParticleProperties = new();
+            BleedParticles bloodParticleProperties = new(entity.EntityId, entity.Api);
             bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
-            bloodParticleProperties.basePos = entity.Pos.XYZ.Add(-0.2f * Math.Cos(yaw + Math.PI / 2), bloodHeight, 0.2f * Math.Sin(yaw + Math.PI / 2));
             bloodParticleProperties.PosOffset = new NatFloat[]
             {
                 NatFloat.createUniform(posOffset_x, posOffset_x),
@@ -505,13 +496,12 @@ namespace BloodyStory
             };
             bloodParticleProperties.Velocity = new NatFloat[]
             {
-                NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.Pos.Motion.X), 0.35f * (float)Math.Cos(yaw)),
-                NatFloat.createUniform(0.175f + (float)entity.Pos.Motion.Y, 0.5025f),
-                NatFloat.createUniform((float)(-1.05f * Math.Sin(yaw) + entity.Pos.Motion.Z), -0.35f * (float)Math.Sin(yaw))
+                NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.SidedPos.Motion.X), 0.35f * (float)Math.Cos(yaw)),
+                NatFloat.createUniform(0.175f + (float)entity.SidedPos.Motion.Y, 0.5025f),
+                NatFloat.createUniform((float)(-1.05f * Math.Sin(yaw) + entity.SidedPos.Motion.Z), -0.35f * (float)Math.Sin(yaw))
             };
 
-            entity.Api.Logger.Event("[BS-particles] server broadcasting NPC particles packet");
-            ((ICoreServerAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).BroadcastPacket(bloodParticleProperties);
+            ((ICoreServerAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).BroadcastPacket(bloodParticleProperties, Array.Empty<IServerPlayer>());
         }
     }
 }
