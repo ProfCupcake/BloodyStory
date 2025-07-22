@@ -1,4 +1,9 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.VisualBasic;
+using Newtonsoft.Json;
+using System;
+using System.Buffers.Text;
+using System.Text;
+using System.Text.Unicode;
 using Vintagestory.API.Common;
 
 namespace BloodyStory.Config
@@ -16,7 +21,7 @@ namespace BloodyStory.Config
         {
             get
             {
-                if (_modConfig == null) { Reload(); }
+                if (_modConfig is null) { Reload(); }
                 return _modConfig;
             }
             set
@@ -44,8 +49,8 @@ namespace BloodyStory.Config
 
                     if (jsonConfig != null)
                     {
-                        api.Logger.Event("[{0}] got world config:-\n{1}", new object[] { ConfigFilename, jsonConfig });
-
+                        api.Logger.Event("[{0}] got world config", new object[] { ConfigFilename });
+                        jsonConfig = Encoding.UTF8.GetString(Convert.FromBase64String(jsonConfig));
                         _modConfig = JsonConvert.DeserializeObject<T>(jsonConfig);
                     }
                     else
@@ -67,8 +72,9 @@ namespace BloodyStory.Config
                     else api.Logger.Event("[{0}] config loaded", new object[] { ConfigFilename });
 
                     jsonConfig = JsonConvert.SerializeObject(_modConfig);
+                    jsonConfig = Convert.ToBase64String(Encoding.UTF8.GetBytes(jsonConfig));
                     api.World.Config.SetString(WorldConfigStringName, jsonConfig);
-                    api.Logger.Event("[{0}] set world config:-\n{1}", new object[] { ConfigFilename, jsonConfig });
+                    api.Logger.Event("[{0}] set world config", new object[] { ConfigFilename });
 
                     break;
             }
