@@ -15,7 +15,6 @@ namespace BloodyStory
 {
     public class BloodyStoryModSystem : ModSystem
     {
-        public const string bloodParticleNetChannel = "bloodystory:particles";
         public const string bleedCheckHotkeyCode = "bleedCheck";
         public BloodyStoryModConfig modConfig => Config.modConfig;
 
@@ -42,9 +41,9 @@ namespace BloodyStory
 
         private void OnEntityLoaded(Entity entity)
         {
-            if (modConfig.allShallBleed)
+            if (modConfig.allShallBleed || entity is EntityPlayer)
             {
-                if (entity.GetBehavior<EntityBehaviorHealth>() is not null)
+                if (entity.GetBehavior<EntityBehaviorHealth>() is not null || entity.WatchedAttributes.GetBool("BS_hasBleedEB"))
                 {
                     if (entity.GetBehavior<EntityBehaviorBleed>() is null)
                     {
@@ -65,9 +64,6 @@ namespace BloodyStory
             api.Event.OnEntitySpawn += OnEntityLoaded;
 
             Config = new(api, "bloodystory");
-            
-            api.Network.RegisterUdpChannel(bloodParticleNetChannel)
-                .RegisterMessageType<BleedParticles>();
 
             api.Network.RegisterChannel(bleedCheckHotkeyCode)
                 .RegisterMessageType<long>();
@@ -123,25 +119,8 @@ namespace BloodyStory
 
             sapi.Event.PlayerRespawn += OnPlayerRespawn;
 
-            sapi.Network.GetUdpChannel(bloodParticleNetChannel)
-                    .SetMessageHandler<BleedParticles>(ServerSpawnParticles_Player);
-
             sapi.Network.GetChannel(bleedCheckHotkeyCode)
                 .SetMessageHandler<long>(ServerSendBleedCheck);
-        }
-
-        private void ServerSpawnParticles_Player(IServerPlayer fromPlayer, BleedParticles packet)
-        {
-            sapi.Network.GetUdpChannel(bloodParticleNetChannel).BroadcastPacket(packet, fromPlayer);
-        }
-
-        private void ClientSpawnParticles(BleedParticles packet)
-        {
-            packet.RecalculateBasePos(api);
-            if (packet.basePos.SquareDistanceTo(capi.World.Player.Entity.Pos) < 4096)
-            {
-                api.World.SpawnParticles(packet);
-            }
         }
 
         private TextCommandResult ToggleBleedingCommand(TextCommandCallingArgs args)
@@ -242,12 +221,72 @@ namespace BloodyStory
 
             capi.Input.SetHotKeyHandler(bleedCheckHotkeyCode, bleedCheck);
 
-            capi.Network.GetUdpChannel(bloodParticleNetChannel)
-                    .SetMessageHandler<BleedParticles>(ClientSpawnParticles);
+            capi.Event.RegisterGameTickListener(ClientCheckLoadedEntities, 5000, 5000);
+        }
+
+        private void ClientCheckLoadedEntities(float obj)
+        {
+            foreach (Entity entity in capi.World.LoadedEntities.Values)
+            {
+                OnEntityLoaded(entity);
+            }
         }
 
         private bool bleedCheck(KeyCombination kc)
         {
+            Entity target = capi.World.Player.CurrentEntitySelection?.Entity;
+            
+            if (target is null || target.GetBehavior<EntityBehaviorBleed>() is null)
+            {
+                target = capi.World.Player.Entity;
+            }
+
+            EntityBehaviorBleed bleedEB = target.GetBehavior<EntityBehaviorBleed>();
+
+            string message;
+
+            if (modConfig.detailedBleedCheck)
+            {
+                message = $"{target.GetName()}'s bleeding:-\n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
+            }
+            else
+            {
+                string bleedRating; // TODO: replace this hardcoded placeholder with a proper solution, also localisation
+
+                double bleedLevel = bleedEB.bleedLevel;
+                if (bleedLevel <= 0)
+                {
+                    bleedRating = "None";
+                }
+                else if (bleedLevel <= modConfig.bleedRating_Trivial)
+                {
+                    bleedRating = "Trivial";
+                }
+                else if (bleedLevel <= modConfig.bleedRating_Minor)
+                {
+                    bleedRating = "Minor";
+                }
+                else if (bleedLevel <= modConfig.bleedRating_Moderate)
+                {
+                    bleedRating = "Moderate";
+                }
+                else if (bleedLevel <= modConfig.bleedRating_Severe)
+                {
+                    bleedRating = "Severe";
+                }
+                else
+                {
+                    bleedRating = "Extreme";
+                }
+
+                message = $"{target.GetName()}'s bleeding: {bleedRating}";
+            }
+
+            capi.ShowChatMessage(message);
+
+            return true;
+
+            /*
             long targetID;
             if (capi.World.Player.CurrentEntitySelection is not null)
             {
@@ -258,7 +297,7 @@ namespace BloodyStory
             }
 
             capi.Network.GetChannel(bleedCheckHotkeyCode).SendPacket<long>(targetID);
-            return true;
+            return true;*/
         }
 
         private void ServerSendBleedCheck(IServerPlayer fromPlayer, long targetID)

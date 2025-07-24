@@ -17,7 +17,6 @@ namespace BloodyStory
 {
     public class EntityBehaviorBleed : EntityBehavior
     {
-        static string bloodParticleNetChannel => BloodyStoryModSystem.bloodParticleNetChannel;
         static BloodyStoryModConfig modConfig => BloodyStoryModSystem.Config.modConfig;
 
         public event OnBleedoutDelegate OnBleedout;
@@ -64,13 +63,11 @@ namespace BloodyStory
             return "bleed";
         }
 
-        private bool initialised = false;
-
         public override void AfterInitialized(bool onFirstSpawn)
         {
             base.AfterInitialized(onFirstSpawn);
 
-            if (entity.World.Side == EnumAppSide.Server)
+            if (entity.Api.Side == EnumAppSide.Server)
             {
                 EntityBehaviorHealth_BS pHealth = entity.GetBehavior<EntityBehaviorHealth>() as EntityBehaviorHealth_BS;
 
@@ -88,9 +85,9 @@ namespace BloodyStory
                 {
                     pHealth.onDamagedPost += HandleDamage;
                 }
-            }
 
-            initialised = true;
+                entity.WatchedAttributes.SetBool("BS_hasBleedEB", true);
+            }
         }
 
         public override void OnGameTick(float deltaTime)
@@ -117,7 +114,7 @@ namespace BloodyStory
                 if (pauseBleedParticles) return;
                 if (t > modConfig.bloodParticleDelay)
                 {
-                    SpawnBloodParticles_Player();
+                    SpawnBloodParticles();
                     t = 0;
                 }
                 else t += dt;
@@ -208,10 +205,11 @@ namespace BloodyStory
                 if (regenBoost < 0) regenBoost = 0;
             }
 
+            /*
             if (entity is not EntityPlayer && bleedLevel > 0)
             {
                 SpawnBloodParticles_NPC();
-            }
+            }*/
         }
 
         private void BleedOut()
@@ -443,11 +441,12 @@ namespace BloodyStory
             }
         }
 
-        void SpawnBloodParticles_Player()
+        void SpawnBloodParticles()
         {
             double bleedAmount = bleedLevel;
             bleedAmount *= modConfig.bloodParticleMultiplier;
-            bleedAmount /= ((EntityPlayer)entity).Controls.Sneak ? modConfig.sneakMultiplier : 1;
+            
+            if (entity is EntityPlayer) bleedAmount /= ((EntityPlayer)entity).Controls.Sneak ? modConfig.sneakMultiplier : 1;
 
             float yaw = entity.SidedPos.Yaw;
             yaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
@@ -456,12 +455,6 @@ namespace BloodyStory
             float posOffset_y = (float)(-0.2f * Math.Sin(yaw + Math.PI / 2));
             BleedParticles bloodParticleProperties = new(entity.EntityId, entity.Api);
             bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
-            /*bloodParticleProperties.PosOffset = new NatFloat[]
-            {
-                NatFloat.createUniform(posOffset_x, posOffset_x),
-                NatFloat.createUniform(0.2f,0.2f),
-                NatFloat.createUniform(posOffset_y, posOffset_y)
-            };*/
             bloodParticleProperties.Velocity = new NatFloat[]
             {
                 NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.SidedPos.Motion.X), 0.35f * (float)Math.Cos(yaw)),
@@ -470,38 +463,16 @@ namespace BloodyStory
             };
 
             bloodParticleProperties.Async = true;
-            ((ICoreClientAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).SendPacket(bloodParticleProperties);
 
-            bloodParticleProperties.Async = false;
+            if (entity is EntityPlayer)
+            {
+                if (entity == ((ICoreClientAPI)entity.Api).World.Player.Entity)
+                {
+                    bloodParticleProperties.Async = false;
+                }
+            }
+
             entity.Api.World.SpawnParticles(bloodParticleProperties);
-        }
-        
-        void SpawnBloodParticles_NPC()
-        {
-            double bleedAmount = bleedLevel;
-            bleedAmount *= modConfig.bloodParticleMultiplier;
-
-            float yaw = entity.SidedPos.Yaw;
-            yaw -= (float)(Math.PI / 2); 
-
-            float posOffset_x = (float)(0.2f * Math.Cos(yaw + Math.PI / 2));
-            float posOffset_y = (float)(-0.2f * Math.Sin(yaw + Math.PI / 2));
-            BleedParticles bloodParticleProperties = new(entity.EntityId, entity.Api);
-            bloodParticleProperties.Quantity = NatFloat.createUniform((float)bleedAmount, (float)bleedAmount * 0.75f);
-            /*bloodParticleProperties.PosOffset = new NatFloat[]
-            {
-                NatFloat.createUniform(posOffset_x, posOffset_x),
-                NatFloat.createUniform(0.2f,0.2f),
-                NatFloat.createUniform(posOffset_y, posOffset_y)
-            };*/
-            bloodParticleProperties.Velocity = new NatFloat[]
-            {
-                NatFloat.createUniform((float)(1.05f * Math.Cos(yaw) + entity.SidedPos.Motion.X), 0.35f * (float)Math.Cos(yaw)),
-                NatFloat.createUniform(0.175f + (float)entity.SidedPos.Motion.Y, 0.5025f),
-                NatFloat.createUniform((float)(-1.05f * Math.Sin(yaw) + entity.SidedPos.Motion.Z), -0.35f * (float)Math.Sin(yaw))
-            };
-
-            ((ICoreServerAPI)entity.Api).Network.GetUdpChannel(bloodParticleNetChannel).BroadcastPacket(bloodParticleProperties, Array.Empty<IServerPlayer>());
         }
     }
 }
