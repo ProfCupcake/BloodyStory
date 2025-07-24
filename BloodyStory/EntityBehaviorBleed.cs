@@ -70,7 +70,10 @@ namespace BloodyStory
         {
             base.AfterInitialized(onFirstSpawn);
 
-            GetEntityConfig("testfolder\\testConstantConfig");
+            string sanitisedCode = entity.Code.ToString().Replace(":", "\\");
+            sanitisedCode = sanitisedCode.Replace("-", "\\");
+            
+            GetEntityConfig($"bloodystory\\{sanitisedCode}");
 
             if (entity.Api.Side == EnumAppSide.Server)
             {
@@ -101,11 +104,7 @@ namespace BloodyStory
             EntityConfigDictionary ??= new();
 
             ConfigManager<BloodyStoryEntityConfig> config;
-            if (EntityConfigDictionary.TryGetValue(key, out config))
-            {
-                entity.Api.Logger.Event($"[BS-allbleed-config] Retrieved entity config for {key}");
-            }
-            else
+            if (!EntityConfigDictionary.TryGetValue(key, out config))
             {
                 entity.Api.Logger.Event($"[BS-allbleed-config] Created entity config for {key}");
                 config = new(entity.Api, key, false);
