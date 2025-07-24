@@ -65,11 +65,7 @@ namespace BloodyStory
 
             Config = new(api, "bloodystory");
 
-            api.Network.RegisterChannel(bleedCheckHotkeyCode)
-                .RegisterMessageType<long>();
-
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
-            //api.RegisterEntityBehaviorClass("health_bs", typeof(EntityBehaviorHealth_BS));
 
             api.World.Config.SetFloat("playerHealthRegenSpeed", 0f); // this is probably fine
         }
@@ -118,9 +114,6 @@ namespace BloodyStory
                 .HandleWith(ToggleBleedParticlesCommand);
 
             sapi.Event.PlayerRespawn += OnPlayerRespawn;
-
-            sapi.Network.GetChannel(bleedCheckHotkeyCode)
-                .SetMessageHandler<long>(ServerSendBleedCheck);
         }
 
         private TextCommandResult ToggleBleedingCommand(TextCommandCallingArgs args)
@@ -285,72 +278,6 @@ namespace BloodyStory
             capi.ShowChatMessage(message);
 
             return true;
-
-            /*
-            long targetID;
-            if (capi.World.Player.CurrentEntitySelection is not null)
-            {
-                targetID = capi.World.Player.CurrentEntitySelection.Entity.EntityId;
-            } else
-            {
-                targetID = capi.World.Player.Entity.EntityId;
-            }
-
-            capi.Network.GetChannel(bleedCheckHotkeyCode).SendPacket<long>(targetID);
-            return true;*/
-        }
-
-        private void ServerSendBleedCheck(IServerPlayer fromPlayer, long targetID)
-        {
-            Entity target = api.World.GetEntityById(targetID);
-
-            if (target is null || target.GetBehavior<EntityBehaviorBleed>() is null)
-            {
-                target = fromPlayer.Entity;
-            }
-
-            EntityBehaviorBleed bleedEB = target.GetBehavior<EntityBehaviorBleed>();
-
-            string message;
-
-            if (modConfig.detailedBleedCheck)
-            {
-                message = $"{target.GetName()}'s bleeding:-\n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
-            }
-            else
-            {
-                string bleedRating; // TODO: replace this hardcoded placeholder with a proper solution, also localisation
-
-                double bleedLevel = bleedEB.bleedLevel;
-                if (bleedLevel <= 0)
-                {
-                    bleedRating = "None";
-                }
-                else if (bleedLevel <= modConfig.bleedRating_Trivial)
-                {
-                    bleedRating = "Trivial";
-                }
-                else if (bleedLevel <= modConfig.bleedRating_Minor)
-                {
-                    bleedRating = "Minor";
-                }
-                else if (bleedLevel <= modConfig.bleedRating_Moderate)
-                {
-                    bleedRating = "Moderate";
-                }
-                else if (bleedLevel <= modConfig.bleedRating_Severe)
-                {
-                    bleedRating = "Severe";
-                }
-                else
-                {
-                    bleedRating = "Extreme";
-                }
-
-                message = $"{target.GetName()}'s bleeding: {bleedRating}";
-            }
-
-            sapi.SendMessage(fromPlayer, GlobalConstants.GeneralChatGroup, message, EnumChatType.Notification);
         }
 
         private TextCommandResult BleedCommand(TextCommandCallingArgs args)

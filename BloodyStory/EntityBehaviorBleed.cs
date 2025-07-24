@@ -204,12 +204,6 @@ namespace BloodyStory
                 regenBoost -= modConfig.regenBoostRate * dt;
                 if (regenBoost < 0) regenBoost = 0;
             }
-
-            /*
-            if (entity is not EntityPlayer && bleedLevel > 0)
-            {
-                SpawnBloodParticles_NPC();
-            }*/
         }
 
         private void BleedOut()
@@ -449,7 +443,7 @@ namespace BloodyStory
             if (entity is EntityPlayer) bleedAmount /= ((EntityPlayer)entity).Controls.Sneak ? modConfig.sneakMultiplier : 1;
 
             float yaw = entity.SidedPos.Yaw;
-            yaw -= (float)(Math.PI / 2); // for some reason, in 1.20, player yaw is now rotated by a quarter turn?
+            yaw -= (float)(Math.PI / 2); // for some reason, in 1.20, entity yaw is now rotated by a quarter turn?
 
             float posOffset_x = (float)(0.2f * Math.Cos(yaw + Math.PI / 2));
             float posOffset_y = (float)(-0.2f * Math.Sin(yaw + Math.PI / 2));
