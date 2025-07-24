@@ -37,6 +37,7 @@ namespace BloodyStory.Config
             ConfigFilename = filename;
             WorldConfigStringName = $"{filename}.config";
             this.api = api;
+            this.logging = logging;
 
             Reload();
         }
