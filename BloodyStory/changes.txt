@@ -7,3 +7,4 @@ CONFIG CHANGES THIS UPDATE - REGENERATE YOUR CONFIG FILE
 	- They are now more likely to desync slightly between clients, but hopefully this shouldn't be a huge problem (if any of you thought it was really important that players all see the exact same blood spatter, sorry I guess)
 - Changed blood colour; now darker, slightly more brown
 - Fix: game would crash if you tried editing the settings of a world saved with this mod enabled
+- Added localisation for bleed check (finally)

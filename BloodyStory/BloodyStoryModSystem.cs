@@ -234,45 +234,52 @@ namespace BloodyStory
                 target = capi.World.Player.Entity;
             }
 
-            EntityBehaviorBleed bleedEB = target.GetBehavior<EntityBehaviorBleed>();
-
             string message;
 
-            if (modConfig.detailedBleedCheck)
+            if (target.Alive)
             {
-                message = $"{target.GetName()}'s bleeding:-\n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
-            }
-            else
-            {
-                string bleedRating; // TODO: replace this hardcoded placeholder with a proper solution, also localisation
 
-                double bleedLevel = bleedEB.bleedLevel;
-                if (bleedLevel <= 0)
+                EntityBehaviorBleed bleedEB = target.GetBehavior<EntityBehaviorBleed>();
+
+                if (modConfig.detailedBleedCheck)
                 {
-                    bleedRating = "None";
-                }
-                else if (bleedLevel <= modConfig.bleedRating_Trivial)
-                {
-                    bleedRating = "Trivial";
-                }
-                else if (bleedLevel <= modConfig.bleedRating_Minor)
-                {
-                    bleedRating = "Minor";
-                }
-                else if (bleedLevel <= modConfig.bleedRating_Moderate)
-                {
-                    bleedRating = "Moderate";
-                }
-                else if (bleedLevel <= modConfig.bleedRating_Severe)
-                {
-                    bleedRating = "Severe";
+                    message = Lang.Get("bloodystory:bleedrating-prefix", new object[] { target.GetName() }) + ":- \n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
                 }
                 else
                 {
-                    bleedRating = "Extreme";
-                }
+                    string bleedRating; // TODO: replace this hardcoded placeholder with a proper solution
 
-                message = $"{target.GetName()}'s bleeding: {bleedRating}";
+                    double bleedLevel = bleedEB.bleedLevel;
+                    if (bleedLevel <= 0)
+                    {
+                        bleedRating = "bloodystory:bleedrating-none";
+                    }
+                    else if (bleedLevel <= modConfig.bleedRating_Trivial)
+                    {
+                        bleedRating = "bloodystory:bleedrating-trivial";
+                    }
+                    else if (bleedLevel <= modConfig.bleedRating_Minor)
+                    {
+                        bleedRating = "bloodystory:bleedrating-minor";
+                    }
+                    else if (bleedLevel <= modConfig.bleedRating_Moderate)
+                    {
+                        bleedRating = "bloodystory:bleedrating-moderate";
+                    }
+                    else if (bleedLevel <= modConfig.bleedRating_Severe)
+                    {
+                        bleedRating = "bloodystory:bleedrating-severe";
+                    }
+                    else
+                    {
+                        bleedRating = "bloodystory:bleedrating-extreme";
+                    }
+
+                    message = $"{Lang.Get("bloodystory:bleedrating-prefix", new object[] { target.GetName() })}: {Lang.Get(bleedRating)}";
+                }
+            } else
+            {
+                message = Lang.Get("bloodystory:bleedrating-target-dead", new object[] { target.GetName() });
             }
 
             capi.ShowChatMessage(message);
@@ -285,7 +292,7 @@ namespace BloodyStory
             IServerPlayer player = args[0] as IServerPlayer;
             EntityBehaviorBleed bleedEB = player.Entity.GetBehavior<EntityBehaviorBleed>();
 
-            string message = player.PlayerName + "'s bleeding:-\n"
+            string message = Lang.Get("bloodystory:bleedrating-prefix", new object[] {player.PlayerName}) + ":-\n"
                 + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
 
             return TextCommandResult.Success(message);
