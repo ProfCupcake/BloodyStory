@@ -2,18 +2,19 @@
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
+using Vintagestory.GameContent;
 
 namespace BloodyStory
 {
     public class BloodyStoryModSystem : ModSystem
     {
-        public const string bloodParticleNetChannel = "bloodystory:particles";
         public const string bleedCheckHotkeyCode = "bleedCheck";
         public BloodyStoryModConfig modConfig => Config.modConfig;
 
@@ -38,18 +39,33 @@ namespace BloodyStory
             harmony.PatchAll();
         }
 
+        private void OnEntityLoaded(Entity entity)
+        {
+            if (modConfig.allShallBleed || entity is EntityPlayer)
+            {
+                if (entity.GetBehavior<EntityBehaviorHealth>() is not null || entity.WatchedAttributes.GetBool("BS_hasBleedEB"))
+                {
+                    if (entity.GetBehavior<EntityBehaviorBleed>() is null)
+                    {
+                        EntityBehaviorBleed ebb = new EntityBehaviorBleed(entity);
+                        entity.AddBehavior(ebb);
+                        ebb.AfterInitialized(false);
+                    }
+                }
+            }
+        }
+
         public override void Start(ICoreAPI api)
         {
             base.Start(api);
             this.api = api;
 
+            api.Event.OnEntityLoaded += OnEntityLoaded;
+            api.Event.OnEntitySpawn += OnEntityLoaded;
+
             Config = new(api, "bloodystory");
-            
-            api.Network.RegisterUdpChannel(bloodParticleNetChannel)
-                .RegisterMessageType<BleedParticles>();
 
             api.RegisterEntityBehaviorClass("bleed", typeof(EntityBehaviorBleed));
-            //api.RegisterEntityBehaviorClass("health_bs", typeof(EntityBehaviorHealth_BS));
 
             api.World.Config.SetFloat("playerHealthRegenSpeed", 0f); // this is probably fine
         }
@@ -197,50 +213,73 @@ namespace BloodyStory
             capi.Input.RegisterHotKey(bleedCheckHotkeyCode, "Check bleeding", GlKeys.B, HotkeyType.CharacterControls); // TODO: localisation
 
             capi.Input.SetHotKeyHandler(bleedCheckHotkeyCode, bleedCheck);
+
+            capi.Event.RegisterGameTickListener(ClientCheckLoadedEntities, 5000, 5000);
+        }
+
+        private void ClientCheckLoadedEntities(float obj)
+        {
+            foreach (Entity entity in capi.World.LoadedEntities.Values)
+            {
+                OnEntityLoaded(entity);
+            }
         }
 
         private bool bleedCheck(KeyCombination kc)
         {
-            EntityPlayer target = null;
-            if (capi.World.Player.CurrentEntitySelection != null)
+            Entity target = capi.World.Player.CurrentEntitySelection?.Entity;
+            
+            if (target is null || target.GetBehavior<EntityBehaviorBleed>() is null)
             {
-                target = capi.World.Player.CurrentEntitySelection.Entity as EntityPlayer;
+                target = capi.World.Player.Entity;
             }
-
-            target ??= capi.World.Player.Entity;
-            EntityBehaviorBleed bleedEB = target.GetBehavior<EntityBehaviorBleed>();
 
             string message;
 
-            if (modConfig.detailedBleedCheck)
+            if (target.Alive)
             {
-                message = $"{target.GetName()}'s bleeding:-\n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
+
+                EntityBehaviorBleed bleedEB = target.GetBehavior<EntityBehaviorBleed>();
+
+                if (modConfig.detailedBleedCheck)
+                {
+                    message = Lang.Get("bloodystory:bleedrating-prefix", new object[] { target.GetName() }) + ":- \n" + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
+                }
+                else
+                {
+                    string bleedRating; // TODO: replace this hardcoded placeholder with a proper solution
+
+                    double bleedLevel = bleedEB.bleedLevel;
+                    if (bleedLevel <= 0)
+                    {
+                        bleedRating = "bloodystory:bleedrating-none";
+                    }
+                    else if (bleedLevel <= modConfig.bleedRating_Trivial)
+                    {
+                        bleedRating = "bloodystory:bleedrating-trivial";
+                    }
+                    else if (bleedLevel <= modConfig.bleedRating_Minor)
+                    {
+                        bleedRating = "bloodystory:bleedrating-minor";
+                    }
+                    else if (bleedLevel <= modConfig.bleedRating_Moderate)
+                    {
+                        bleedRating = "bloodystory:bleedrating-moderate";
+                    }
+                    else if (bleedLevel <= modConfig.bleedRating_Severe)
+                    {
+                        bleedRating = "bloodystory:bleedrating-severe";
+                    }
+                    else
+                    {
+                        bleedRating = "bloodystory:bleedrating-extreme";
+                    }
+
+                    message = $"{Lang.Get("bloodystory:bleedrating-prefix", new object[] { target.GetName() })}: {Lang.Get(bleedRating)}";
+                }
             } else
             {
-                string bleedRating; // TODO: replace this hardcoded placeholder with a proper solution, also localisation
-
-                double bleedLevel = bleedEB.bleedLevel;
-                if (bleedLevel <= 0)
-                {
-                    bleedRating = "None";
-                } else if (bleedLevel <= modConfig.bleedRating_Trivial)
-                {
-                    bleedRating = "Trivial";
-                } else if (bleedLevel <= modConfig.bleedRating_Minor)
-                {
-                    bleedRating = "Minor";
-                } else if (bleedLevel <= modConfig.bleedRating_Moderate)
-                {
-                    bleedRating = "Moderate";
-                } else if (bleedLevel <= modConfig.bleedRating_Severe)
-                {
-                    bleedRating = "Severe";
-                } else
-                {
-                    bleedRating = "Extreme";
-                }
-
-                message = $"{target.GetName()}'s bleeding: {bleedRating}";
+                message = Lang.Get("bloodystory:bleedrating-target-dead", new object[] { target.GetName() });
             }
 
             capi.ShowChatMessage(message);
@@ -253,7 +292,7 @@ namespace BloodyStory
             IServerPlayer player = args[0] as IServerPlayer;
             EntityBehaviorBleed bleedEB = player.Entity.GetBehavior<EntityBehaviorBleed>();
 
-            string message = player.PlayerName + "'s bleeding:-\n"
+            string message = Lang.Get("bloodystory:bleedrating-prefix", new object[] {player.PlayerName}) + ":-\n"
                 + Lang.Get("bloodystory:command-bleed-stats", new object[] { bleedEB.bleedLevel, bleedEB.GetBleedRate(true), bleedEB.GetRegenRate(true), bleedEB.regenBoost });
 
             return TextCommandResult.Success(message);

@@ -1,5 +1,10 @@
-- Significant change to how damage is handled - mod now completely replaces vanilla health behavior
-- Changes to server-client config sync; should hopefully be more reliable now
-- Separated the 4 damage types that added bleed into their own config options; set to the same values by default
+CONFIG CHANGES THIS UPDATE - REGENERATE YOUR CONFIG FILE
 
-** config changes this update - regenerate your config **
+- Bleeding can now be applied to all entities! Still a basic, early implementation; I want to add the ability to blacklist and/or whitelist entities in the config, as well as modify the settings on a per-entity basis.
+- Bleed particles now persist for much longer. Follow those blood trails!
+- Backend changes to bleed particles to assist with the above. 
+	- They're now asynchronous, so they should perform better and be less likely to hit the particle limit now, but may not be as responsive or accurate for other entities (local player's particles are unaffected by this change). 
+	- They are now more likely to desync slightly between clients, but hopefully this shouldn't be a huge problem (if any of you thought it was really important that players all see the exact same blood spatter, sorry I guess)
+- Changed blood colour; now darker, slightly more brown
+- Fix: game would crash if you tried editing the settings of a world saved with this mod enabled
+- Added localisation for bleed check (finally)

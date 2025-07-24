@@ -11,5 +11,16 @@
   "command-bleedout-enabled": "Bleedout enabled",
   "command-bleedout-disabled": "Bleedout disabled",
   "command-bleed-paused": "Bleeding paused",
-  "command-bleed-resumed": "Bleeding resumed"
+  "command-bleed-resumed": "Bleeding resumed",
+
+  "bleedrating-prefix": "{0}'s bleeding",
+
+  "bleedrating-none": "None",
+  "bleedrating-trivial": "Trivial",
+  "bleedrating-minor": "Minor",
+  "bleedrating-moderate": "Moderate",
+  "bleedrating-severe": "Severe",
+  "bleedrating-extreme": "Extreme",
+
+  "bleedrating-target-dead": "{0} is dead"
 }
