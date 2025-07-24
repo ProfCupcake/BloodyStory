@@ -13,6 +13,8 @@ namespace BloodyStory.Config
         private readonly string ConfigFilename;
         private readonly string WorldConfigStringName;
 
+        private bool logging;
+
         private ICoreAPI api;
 
         private T _modConfig;
@@ -30,7 +32,7 @@ namespace BloodyStory.Config
             }
         }
 
-        public ConfigManager(ICoreAPI api, string filename)
+        public ConfigManager(ICoreAPI api, string filename, bool logging = true)
         {
             ConfigFilename = filename;
             WorldConfigStringName = $"{filename}.config";
@@ -49,32 +51,32 @@ namespace BloodyStory.Config
 
                     if (jsonConfig != null)
                     {
-                        api.Logger.Event("[{0}] got world config", new object[] { ConfigFilename });
+                        if (logging) api.Logger.Event("[{0}] got world config", new object[] { ConfigFilename });
                         jsonConfig = Encoding.UTF8.GetString(Convert.FromBase64String(jsonConfig));
                         _modConfig = JsonConvert.DeserializeObject<T>(jsonConfig);
                     }
                     else
                     {
-                        api.Logger.Error("[{0}] failed to acquire world config", new object[] { ConfigFilename });
+                        if (logging) api.Logger.Error("[{0}] failed to acquire world config", new object[] { ConfigFilename });
                         // TODO: implement attempted re-acquisition of world config
                     }
                     break;
 
                 case (EnumAppSide.Server):
-                    api.Logger.Event("[{0}] trying to load config", new object[] { ConfigFilename });
+                    if (logging) api.Logger.Event("[{0}] trying to load config", new object[] { ConfigFilename });
                     _modConfig = api.LoadModConfig<T>($"{ConfigFilename}.json");
                     if (_modConfig == null)
                     {
-                        api.Logger.Event("[{0}] generating new config", new object[] { ConfigFilename });
+                        if (logging) api.Logger.Event("[{0}] generating new config", new object[] { ConfigFilename });
                         _modConfig = new();
                         api.StoreModConfig(_modConfig, $"{ConfigFilename}.json");
                     }
-                    else api.Logger.Event("[{0}] config loaded", new object[] { ConfigFilename });
+                    else if (logging) api.Logger.Event("[{0}] config loaded", new object[] { ConfigFilename });
 
                     jsonConfig = JsonConvert.SerializeObject(_modConfig);
                     jsonConfig = Convert.ToBase64String(Encoding.UTF8.GetBytes(jsonConfig));
                     api.World.Config.SetString(WorldConfigStringName, jsonConfig);
-                    api.Logger.Event("[{0}] set world config", new object[] { ConfigFilename });
+                    if (logging) api.Logger.Event("[{0}] set world config", new object[] { ConfigFilename });
 
                     break;
             }
