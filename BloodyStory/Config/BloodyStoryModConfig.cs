@@ -1,6 +1,4 @@
-﻿using ProtoBuf;
-
-namespace BloodyStory.Config
+﻿namespace BloodyStory.Config
 {
     public class BloodyStoryModConfig // TODO: proper config documentation
     {

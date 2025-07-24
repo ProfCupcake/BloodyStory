@@ -1,6 +1,7 @@
 ﻿using BloodyStory.Config;
 using BloodyStory.Lib;
 using System;
+using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Numerics;
 using Vintagestory.API.Client;
@@ -18,6 +19,8 @@ namespace BloodyStory
     public class EntityBehaviorBleed : EntityBehavior
     {
         static BloodyStoryModConfig modConfig => BloodyStoryModSystem.Config.modConfig;
+
+        static Dictionary<string, ConfigManager<BloodyStoryEntityConfig>> EntityConfigDictionary;
 
         public event OnBleedoutDelegate OnBleedout;
 
@@ -67,6 +70,8 @@ namespace BloodyStory
         {
             base.AfterInitialized(onFirstSpawn);
 
+            GetEntityConfig("testfolder\\testConstantConfig");
+
             if (entity.Api.Side == EnumAppSide.Server)
             {
                 EntityBehaviorHealth_BS pHealth = entity.GetBehavior<EntityBehaviorHealth>() as EntityBehaviorHealth_BS;
@@ -76,7 +81,8 @@ namespace BloodyStory
                     if (entity is EntityPlayer)
                     {
                         COCompat.AddCODamageEH_Player((EntityPlayer)entity, this);
-                    } else
+                    }
+                    else
                     {
                         COCompat.AddCODamageEH_NPC(entity, this);
                     }
@@ -88,6 +94,25 @@ namespace BloodyStory
 
                 entity.WatchedAttributes.SetBool("BS_hasBleedEB", true);
             }
+        }
+
+        ConfigManager<BloodyStoryEntityConfig> GetEntityConfig(string key)
+        {
+            EntityConfigDictionary ??= new();
+
+            ConfigManager<BloodyStoryEntityConfig> config;
+            if (EntityConfigDictionary.TryGetValue(key, out config))
+            {
+                entity.Api.Logger.Event($"[BS-allbleed-config] Retrieved entity config for {key}");
+            }
+            else
+            {
+                entity.Api.Logger.Event($"[BS-allbleed-config] Created entity config for {key}");
+                config = new(entity.Api, key, false);
+                EntityConfigDictionary.Add(key, config);
+            }
+
+            return config;
         }
 
         public override void OnGameTick(float deltaTime)

@@ -15,6 +15,8 @@ namespace BloodyStory
 {
     public class BloodyStoryModSystem : ModSystem
     {
+        public static BloodyStoryModSystem instance;
+        
         public const string bleedCheckHotkeyCode = "bleedCheck";
         public BloodyStoryModConfig modConfig => Config.modConfig;
 
@@ -25,7 +27,7 @@ namespace BloodyStory
             get; private set;
         }
 
-        ICoreAPI api;
+        static ICoreAPI api;
         ICoreClientAPI capi;
         ICoreServerAPI sapi;
 
@@ -58,7 +60,7 @@ namespace BloodyStory
         public override void Start(ICoreAPI api)
         {
             base.Start(api);
-            this.api = api;
+            BloodyStoryModSystem.api = api;
 
             api.Event.OnEntityLoaded += OnEntityLoaded;
             api.Event.OnEntitySpawn += OnEntityLoaded;
