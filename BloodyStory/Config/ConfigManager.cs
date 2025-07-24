@@ -52,7 +52,7 @@ namespace BloodyStory.Config
 
                     if (jsonConfig != null)
                     {
-                        if (logging) api.Logger.Event("[{0}] got world config", new object[] { ConfigFilename });
+                        Log("[{0}] got world config", new object[] { ConfigFilename });
                         jsonConfig = Encoding.UTF8.GetString(Convert.FromBase64String(jsonConfig));
                         _modConfig = JsonConvert.DeserializeObject<T>(jsonConfig);
                     }
@@ -64,23 +64,28 @@ namespace BloodyStory.Config
                     break;
 
                 case (EnumAppSide.Server):
-                    if (logging) api.Logger.Event("[{0}] trying to load config", new object[] { ConfigFilename });
+                    Log("[{0}] trying to load config", new object[] { ConfigFilename });
                     _modConfig = api.LoadModConfig<T>($"{ConfigFilename}.json");
                     if (_modConfig == null)
                     {
-                        if (logging) api.Logger.Event("[{0}] generating new config", new object[] { ConfigFilename });
+                        Log("[{0}] generating new config", new object[] { ConfigFilename });
                         _modConfig = new();
                         api.StoreModConfig(_modConfig, $"{ConfigFilename}.json");
                     }
-                    else if (logging) api.Logger.Event("[{0}] config loaded", new object[] { ConfigFilename });
+                    else Log("[{0}] config loaded", new object[] { ConfigFilename });
 
                     jsonConfig = JsonConvert.SerializeObject(_modConfig);
                     jsonConfig = Convert.ToBase64String(Encoding.UTF8.GetBytes(jsonConfig));
                     api.World.Config.SetString(WorldConfigStringName, jsonConfig);
-                    if (logging) api.Logger.Event("[{0}] set world config", new object[] { ConfigFilename });
+                    Log("[{0}] set world config", new object[] { ConfigFilename });
 
                     break;
             }
+        }
+
+        private void Log(string message, object[] objects)
+        {
+            if (logging) api.Logger.Event(message, objects);
         }
     }
 }
