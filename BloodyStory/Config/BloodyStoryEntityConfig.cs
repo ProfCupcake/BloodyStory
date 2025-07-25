@@ -23,9 +23,11 @@
         public double bleedHealRate = 0.15f; 
         public double bleedQuotient = 12f; 
 
-        public double bleedCautMultiplier = 1f; 
+        public double bleedCautMultiplier = 1f;
 
         public double bloodParticleMultiplier = 1f; 
-        public double bloodParticleDelay = 0.05f; 
+        public double bloodParticleDelay = 0.05f;
+
+        public float bandageMultiplier = 1f;
     }
 }

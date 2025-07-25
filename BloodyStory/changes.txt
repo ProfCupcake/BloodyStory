@@ -1,6 +1,2 @@
-
-
-TODO:-
-
-- Blacklist and/or whitelist for all-bleed
-- Per-entity settings overrides for all-bleed
+- Implemented per-entity config overrides
+- Fix for weird null reference exception
