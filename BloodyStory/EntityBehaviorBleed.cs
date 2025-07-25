@@ -350,6 +350,8 @@ namespace BloodyStory
                 regenBoost = 0;
             }
 
+            if (!BleedEnabled) return damage;
+
             switch (dmgSource.Type) // possible alternate implementation: dictionary, with dmg type as keys and functions as values?
             {
                 case EnumDamageType.Heal: // healing items reduce bleed rate
