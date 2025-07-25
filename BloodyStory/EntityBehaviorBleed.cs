@@ -522,5 +522,10 @@ namespace BloodyStory
 
             entity.Api.World.SpawnParticles(bloodParticleProperties);
         }
+
+        public static void ClearEntityConfigDict()
+        {
+            EntityConfigDictionary.Clear();
+        }
     }
 }

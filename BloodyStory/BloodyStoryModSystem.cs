@@ -77,6 +77,8 @@ namespace BloodyStory
         {
             base.Dispose();
 
+            EntityBehaviorBleed.ClearEntityConfigDict();
+
             harmony.UnpatchAll("bloodystory");
         }
 
