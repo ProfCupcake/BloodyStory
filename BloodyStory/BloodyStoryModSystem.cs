@@ -43,6 +43,7 @@ namespace BloodyStory
 
         private void OnEntityLoaded(Entity entity)
         {
+            if (entity is null) return;
             if (modConfig.allShallBleed || entity is EntityPlayer)
             {
                 if (entity.GetBehavior<EntityBehaviorHealth>() is not null || entity.WatchedAttributes.GetBool("BS_hasBleedEB"))
