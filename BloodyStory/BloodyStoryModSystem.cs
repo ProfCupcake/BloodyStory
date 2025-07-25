@@ -15,6 +15,8 @@ namespace BloodyStory
 {
     public class BloodyStoryModSystem : ModSystem
     {
+        public static BloodyStoryModSystem instance;
+        
         public const string bleedCheckHotkeyCode = "bleedCheck";
         public BloodyStoryModConfig modConfig => Config.modConfig;
 
@@ -25,7 +27,7 @@ namespace BloodyStory
             get; private set;
         }
 
-        ICoreAPI api;
+        static ICoreAPI api;
         ICoreClientAPI capi;
         ICoreServerAPI sapi;
 
@@ -41,6 +43,7 @@ namespace BloodyStory
 
         private void OnEntityLoaded(Entity entity)
         {
+            if (entity is null) return;
             if (modConfig.allShallBleed || entity is EntityPlayer)
             {
                 if (entity.GetBehavior<EntityBehaviorHealth>() is not null || entity.WatchedAttributes.GetBool("BS_hasBleedEB"))
@@ -58,7 +61,7 @@ namespace BloodyStory
         public override void Start(ICoreAPI api)
         {
             base.Start(api);
-            this.api = api;
+            BloodyStoryModSystem.api = api;
 
             api.Event.OnEntityLoaded += OnEntityLoaded;
             api.Event.OnEntitySpawn += OnEntityLoaded;
@@ -73,6 +76,8 @@ namespace BloodyStory
         public override void Dispose()
         {
             base.Dispose();
+
+            EntityBehaviorBleed.ClearEntityConfigDict();
 
             harmony.UnpatchAll("bloodystory");
         }

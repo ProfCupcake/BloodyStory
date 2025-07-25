@@ -1,6 +1,8 @@
 ﻿using BloodyStory.Config;
 using BloodyStory.Lib;
+using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Numerics;
 using Vintagestory.API.Client;
@@ -18,6 +20,40 @@ namespace BloodyStory
     public class EntityBehaviorBleed : EntityBehavior
     {
         static BloodyStoryModConfig modConfig => BloodyStoryModSystem.Config.modConfig;
+
+        static Dictionary<string, ConfigManager<BloodyStoryEntityConfig>> EntityConfigDictionary;
+
+        ConfigManager<BloodyStoryEntityConfig> EntityConfigMgr;
+
+        BloodyStoryEntityConfig EntityConfig => EntityConfigMgr?.modConfig;
+
+        bool ConfigOverride => EntityConfig.ConfigEnabled;
+
+        bool BleedEnabled => ConfigOverride ? EntityConfig.BleedEnabled : true;
+
+        double baseRegen => ConfigOverride ? EntityConfig.baseRegen : modConfig.baseRegen;
+
+        float bleedDamageMultiplier_blunt => ConfigOverride ? EntityConfig.bleedDamageMultiplier_blunt : modConfig.bleedDamageMultiplier_blunt;
+        float directDamageMultiplier_blunt => ConfigOverride ? EntityConfig.directDamageMultiplier_blunt : modConfig.directDamageMultiplier_blunt;
+
+        float bleedDamageMultiplier_slash => ConfigOverride ? EntityConfig.bleedDamageMultiplier_slash : modConfig.bleedDamageMultiplier_slash;
+        float directDamageMultiplier_slash => ConfigOverride ? EntityConfig.directDamageMultiplier_slash : modConfig.directDamageMultiplier_slash;
+
+        float bleedDamageMultiplier_pierce => ConfigOverride ? EntityConfig.bleedDamageMultiplier_pierce : modConfig.bleedDamageMultiplier_pierce;
+        float directDamageMultiplier_pierce => ConfigOverride ? EntityConfig.directDamageMultiplier_pierce : modConfig.directDamageMultiplier_pierce;
+
+        float bleedDamageMultiplier_poison => ConfigOverride ? EntityConfig.bleedDamageMultiplier_poison : modConfig.bleedDamageMultiplier_poison;
+        float directDamageMultiplier_poison => ConfigOverride ? EntityConfig.directDamageMultiplier_poison : modConfig.directDamageMultiplier_poison;
+
+        double bleedHealRate => ConfigOverride ? EntityConfig.bleedHealRate : modConfig.bleedHealRate;
+        double bleedQuotient => ConfigOverride ? EntityConfig.bleedQuotient : modConfig.bleedQuotient;
+
+        double bleedCautMultiplier => ConfigOverride ? EntityConfig.bleedCautMultiplier : modConfig.bleedCautMultiplier;
+
+        double bloodParticleMultiplier => ConfigOverride ? EntityConfig.bloodParticleMultiplier : modConfig.bloodParticleMultiplier;
+        double bloodParticleDelay => ConfigOverride ? EntityConfig.bloodParticleDelay : modConfig.bloodParticleDelay;
+
+        double bandageMultiplier => ConfigOverride ? EntityConfig.bandageMultiplier : modConfig.bandageMultiplier;
 
         public event OnBleedoutDelegate OnBleedout;
 
@@ -67,6 +103,11 @@ namespace BloodyStory
         {
             base.AfterInitialized(onFirstSpawn);
 
+            string sanitisedCode = entity.Code.ToString().Replace(":", "\\");
+            sanitisedCode = sanitisedCode.Replace("-", "\\");
+            
+            EntityConfigMgr = GetEntityConfigMgr($"bloodystory\\{sanitisedCode}");
+
             if (entity.Api.Side == EnumAppSide.Server)
             {
                 EntityBehaviorHealth_BS pHealth = entity.GetBehavior<EntityBehaviorHealth>() as EntityBehaviorHealth_BS;
@@ -76,7 +117,8 @@ namespace BloodyStory
                     if (entity is EntityPlayer)
                     {
                         COCompat.AddCODamageEH_Player((EntityPlayer)entity, this);
-                    } else
+                    }
+                    else
                     {
                         COCompat.AddCODamageEH_NPC(entity, this);
                     }
@@ -90,11 +132,25 @@ namespace BloodyStory
             }
         }
 
+        ConfigManager<BloodyStoryEntityConfig> GetEntityConfigMgr(string key)
+        {
+            EntityConfigDictionary ??= new();
+
+            ConfigManager<BloodyStoryEntityConfig> config;
+            if (!EntityConfigDictionary.TryGetValue(key, out config))
+            {
+                config = new(entity.Api, key, false);
+                EntityConfigDictionary.Add(key, config);
+            }
+
+            return config;
+        }
+
         public override void OnGameTick(float deltaTime)
         {
-            if (entity == null || !entity.Alive) return;
+            if (entity is null || !entity.Alive) return;
 
-            if (modConfig == null) return;
+            if (modConfig is null) return;
 
             switch (entity.World.Side)
             {
@@ -111,8 +167,8 @@ namespace BloodyStory
         {
             if (bleedLevel > 0f)
             {
-                if (pauseBleedParticles) return;
-                if (t > modConfig.bloodParticleDelay)
+                if (pauseBleedParticles || !BleedEnabled) return;
+                if (t > bloodParticleDelay)
                 {
                     SpawnBloodParticles();
                     t = 0;
@@ -123,11 +179,11 @@ namespace BloodyStory
 
         private void ServerTick(float dtr)
         {
-            if (pauseBleedProcess) return;
+            if (pauseBleedProcess || !BleedEnabled) return;
 
-            if (entity is EntityPlayer)
+            if (entity is EntityPlayer playerEntity)
             {
-                IServerPlayer serverPlayer = (IServerPlayer)((EntityPlayer)entity).Player;
+                IServerPlayer serverPlayer = (IServerPlayer)playerEntity.Player;
 
                 if (serverPlayer.ConnectionState != EnumClientState.Playing) return;
             }
@@ -139,13 +195,13 @@ namespace BloodyStory
             EntityBehaviorHealth pHealth = entity.GetBehavior<EntityBehaviorHealth>();
             EntityBehaviorHunger pHunger = entity.GetBehavior<EntityBehaviorHunger>();
 
-            double bleedDmg = GetBleedRate(true) * modConfig.bleedQuotient; // TODO: maybe fix this hacky "solution"
+            double bleedDmg = GetBleedRate(true) * bleedQuotient; // TODO: maybe fix this hacky "solution"
 
             double regenRate = GetRegenRate(false);
 
             if (bleedLevel > 0)
             {
-                double dt_peak = (bleedDmg - regenRate * modConfig.bleedQuotient) / modConfig.bleedHealRate;
+                double dt_peak = (bleedDmg - regenRate * bleedQuotient) / bleedHealRate;
                 if (dt_peak < dt)
                 {
                     if (CalculateDmgCum(dt_peak, bleedDmg, regenRate, regenBoost) > pHealth.Health)
@@ -153,7 +209,7 @@ namespace BloodyStory
                         BleedOut();
                     }
                 }
-                bleedLevel = Math.Max(bleedLevel - modConfig.bleedHealRate * dt, 0);
+                bleedLevel = Math.Max(bleedLevel - bleedHealRate * dt, 0);
                 SitStartTime = 0;
             }
 
@@ -164,7 +220,7 @@ namespace BloodyStory
                 BleedOut();
             }
 
-            if (pHunger != null)
+            if (pHunger is not null)
             {
                 // Note: regen boost is also included in this now
                 // I dunno if that's a good thing or not
@@ -223,11 +279,11 @@ namespace BloodyStory
 
         public double GetBleedRate(bool includeSneak = true)
         {
-            double quot = modConfig.bleedQuotient;
+            double quot = bleedQuotient;
             
-            if (entity is EntityPlayer)
+            if (entity is EntityPlayer playerEntity)
             {
-                if (includeSneak && ((EntityPlayer)entity).Controls.Sneak) quot *= modConfig.sneakMultiplier;
+                if (includeSneak && playerEntity.Controls.Sneak) quot *= modConfig.sneakMultiplier;
             }
 
             return bleedLevel / quot;
@@ -235,7 +291,7 @@ namespace BloodyStory
 
         public double GetRegenRate(bool includeBoost = false)
         {
-            if (entity is not EntityPlayer) return modConfig.baseRegen;
+            if (entity is not EntityPlayer) return baseRegen;
 
             if (entity.Api.Side == EnumAppSide.Client)
             {
@@ -252,7 +308,7 @@ namespace BloodyStory
             EntityBehaviorHunger pHunger = entity.GetBehavior<EntityBehaviorHunger>();
 
             double bleedRate = bleedLevel;
-            double regenRate = pHunger.Saturation > 0 ? modConfig.baseRegen + modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth) : 0;
+            double regenRate = pHunger.Saturation > 0 ? baseRegen + modConfig.bonusRegen * (pHealth.MaxHealth - pHealth.BaseMaxHealth) : 0;
 
             if (bleedRate <= 0)
             {
@@ -287,8 +343,6 @@ namespace BloodyStory
         {
             if (dmgSource.Source == EnumDamageSource.Revive) return damage;
 
-            SyncedTreeAttribute playerAttributes = entity.WatchedAttributes;
-
             if (dmgSource.Source == EnumDamageSource.Void) return damage;
 
             if (dmgSource.Type != EnumDamageType.Heal)
@@ -296,11 +350,13 @@ namespace BloodyStory
                 regenBoost = 0;
             }
 
+            if (!BleedEnabled) return damage;
+
             switch (dmgSource.Type) // possible alternate implementation: dictionary, with dmg type as keys and functions as values?
             {
                 case EnumDamageType.Heal: // healing items reduce bleed rate
                     // TODO: add alternative healing method, to allow direct healing?
-                    damage *= modConfig.bandageMultiplier;
+                    damage *= (float)bandageMultiplier;
                     damage *= Math.Max(0, entity.Stats.GetBlended("healingeffectivness"));
                     double bleedRate = bleedLevel;
                     bleedRate -= damage;
@@ -308,30 +364,30 @@ namespace BloodyStory
                     bleedLevel = bleedRate;
                     if (entity is EntityPlayer)
                     {
-                        ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-healed", new object[] { Math.Round(damage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
+                        ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-healed", new object[] { Math.Round(damage / bleedQuotient, 3) }), EnumChatType.Notification);
                     }
                     ReceiveDamageReplacer(dmgSource, damage);
                     damage = 0;
                     break;
                 case EnumDamageType.BluntAttack:
-                    ApplyBleed(ref damage, modConfig.bleedDamageMultiplier_blunt, modConfig.directDamageMultiplier_blunt, dmgSource);
+                    ApplyBleed(ref damage, bleedDamageMultiplier_blunt, directDamageMultiplier_blunt, dmgSource);
                     break;
                 case EnumDamageType.SlashingAttack:
-                    ApplyBleed(ref damage, modConfig.bleedDamageMultiplier_slash, modConfig.directDamageMultiplier_slash, dmgSource);
+                    ApplyBleed(ref damage, bleedDamageMultiplier_slash, directDamageMultiplier_slash, dmgSource);
                     break;
                 case EnumDamageType.PiercingAttack:
-                    ApplyBleed(ref damage, modConfig.bleedDamageMultiplier_pierce, modConfig.directDamageMultiplier_pierce, dmgSource);
+                    ApplyBleed(ref damage, bleedDamageMultiplier_pierce, directDamageMultiplier_pierce, dmgSource);
                     break;
                 case EnumDamageType.Poison:
-                    ApplyBleed(ref damage, modConfig.bleedDamageMultiplier_poison, modConfig.directDamageMultiplier_poison, dmgSource);
+                    ApplyBleed(ref damage, bleedDamageMultiplier_poison, directDamageMultiplier_poison, dmgSource);
                     break;
                 case EnumDamageType.Gravity: break;
                 case EnumDamageType.Fire:
-                    bleedLevel -= damage * modConfig.bleedCautMultiplier;
+                    bleedLevel -= damage * bleedCautMultiplier;
                     if (bleedLevel < 0) bleedLevel = 0;
                     if (entity is EntityPlayer)
                     {
-                        ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-cauterised", new object[] { Math.Round(damage * modConfig.bleedCautMultiplier / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
+                        ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-cauterised", new object[] { Math.Round(damage * bleedCautMultiplier / bleedQuotient, 3) }), EnumChatType.Notification);
                     }
                     break; // :]
                 case EnumDamageType.Suffocation: break;
@@ -357,7 +413,7 @@ namespace BloodyStory
 
             if (entity is EntityPlayer)
             {
-                ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-gained", new object[] { Math.Round(bleedDamage / modConfig.bleedQuotient, 3) }), EnumChatType.Notification);
+                ((IServerPlayer)((EntityPlayer)entity).Player).SendMessage(GlobalConstants.DamageLogChatGroup, Lang.Get("bloodystory:damagelog-bleed-gained", new object[] { Math.Round(bleedDamage / bleedQuotient, 3) }), EnumChatType.Notification);
             }
             ReceiveDamageReplacer(dmgSource, bleedDamage);
 
@@ -438,7 +494,7 @@ namespace BloodyStory
         void SpawnBloodParticles()
         {
             double bleedAmount = bleedLevel;
-            bleedAmount *= modConfig.bloodParticleMultiplier;
+            bleedAmount *= bloodParticleMultiplier;
             
             if (entity is EntityPlayer) bleedAmount /= ((EntityPlayer)entity).Controls.Sneak ? modConfig.sneakMultiplier : 1;
 
@@ -467,6 +523,11 @@ namespace BloodyStory
             }
 
             entity.Api.World.SpawnParticles(bloodParticleProperties);
+        }
+
+        public static void ClearEntityConfigDict()
+        {
+            EntityConfigDictionary.Clear();
         }
     }
 }
